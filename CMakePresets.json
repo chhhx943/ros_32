@@ -1,0 +1,129 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "default",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
+            "cacheVariables": {}
+        },
+        {
+            "name": "Debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "MOTOR_BENCH_TEST": "OFF",
+                "BSP_BXCAN_RUN_LOOPBACK_SELF_TEST": "OFF",
+                "CAN_MOTOR_BENCH_TEST": "OFF",
+                "STEERING_BENCH_TEST": "OFF",
+                "ACKERMANN_BENCH_TEST": "OFF"
+            }
+        },
+        {
+            "name": "BenchArm",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/BenchArm",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "MOTOR_BENCH_TEST": "ON",
+                "BSP_BXCAN_RUN_LOOPBACK_SELF_TEST": "OFF",
+                "CAN_MOTOR_BENCH_TEST": "OFF",
+                "STEERING_BENCH_TEST": "OFF",
+                "ACKERMANN_BENCH_TEST": "OFF"
+            }
+        },
+        {
+            "name": "BenchCan",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/BenchCan",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "MOTOR_BENCH_TEST": "OFF",
+                "BSP_BXCAN_RUN_LOOPBACK_SELF_TEST": "OFF",
+                "CAN_MOTOR_BENCH_TEST": "ON",
+                "STEERING_BENCH_TEST": "OFF",
+                "ACKERMANN_BENCH_TEST": "OFF"
+            }
+        },
+        {
+            "name": "BenchCalibration",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/BenchCalibration",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "MOTOR_BENCH_TEST": "OFF",
+                "BSP_BXCAN_RUN_LOOPBACK_SELF_TEST": "OFF",
+                "CAN_MOTOR_BENCH_TEST": "OFF",
+                "CALIBRATION_BENCH_TEST": "ON",
+                "STEERING_BENCH_TEST": "OFF",
+                "ACKERMANN_BENCH_TEST": "OFF"
+            }
+        },
+        {
+            "name": "SteeringBench",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/SteeringBench",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "MOTOR_BENCH_TEST": "OFF",
+                "BSP_BXCAN_RUN_LOOPBACK_SELF_TEST": "OFF",
+                "CAN_MOTOR_BENCH_TEST": "OFF",
+                "CALIBRATION_BENCH_TEST": "OFF",
+                "STEERING_BENCH_TEST": "ON"
+            }
+        },
+        {
+            "name": "AckermannBench",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/AckermannBench",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "MOTOR_BENCH_TEST": "OFF",
+                "BSP_BXCAN_RUN_LOOPBACK_SELF_TEST": "OFF",
+                "CAN_MOTOR_BENCH_TEST": "OFF",
+                "CALIBRATION_BENCH_TEST": "OFF",
+                "STEERING_BENCH_TEST": "OFF",
+                "ACKERMANN_BENCH_TEST": "ON"
+            }
+        },
+        {
+            "name": "Release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "Debug",
+            "configurePreset": "Debug"
+        },
+        {
+            "name": "BenchArm",
+            "configurePreset": "BenchArm"
+        },
+        {
+            "name": "BenchCan",
+            "configurePreset": "BenchCan"
+        },
+        {
+            "name": "BenchCalibration",
+            "configurePreset": "BenchCalibration"
+        },
+        {
+            "name": "SteeringBench",
+            "configurePreset": "SteeringBench"
+        },
+        {
+            "name": "AckermannBench",
+            "configurePreset": "AckermannBench"
+        },
+        {
+            "name": "Release",
+            "configurePreset": "Release"
+        }
+    ]
+}

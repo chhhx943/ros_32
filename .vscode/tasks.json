@@ -1,0 +1,116 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CMake: Configure Debug",
+      "type": "process",
+      "command": "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\CMake\\bin\\cmake.exe",
+      "args": [
+        "--preset",
+        "Debug"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake: Build Debug",
+      "type": "process",
+      "command": "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\CMake\\bin\\cmake.exe",
+      "args": [
+        "--build",
+        "--preset",
+        "Debug"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "CMake: Configure Debug",
+      "dependsOrder": "sequence",
+      "problemMatcher": "$gcc",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "CMake: Configure BenchArm",
+      "type": "process",
+      "command": "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\CMake\\bin\\cmake.exe",
+      "args": [
+        "--preset",
+        "BenchArm"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake: Build BenchArm",
+      "type": "process",
+      "command": "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\CMake\\bin\\cmake.exe",
+      "args": [
+        "--build",
+        "--preset",
+        "BenchArm"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "CMake: Configure BenchArm",
+      "dependsOrder": "sequence",
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "CMake: Configure Release",
+      "type": "process",
+      "command": "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\CMake\\bin\\cmake.exe",
+      "args": [
+        "--preset",
+        "Release"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake: Build Release",
+      "type": "process",
+      "command": "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\CMake\\bin\\cmake.exe",
+      "args": [
+        "--build",
+        "--preset",
+        "Release"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "CMake: Configure Release",
+      "dependsOrder": "sequence",
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "STM32: Flash & Run Debug",
+      "type": "process",
+      "command": "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+      "args": [
+        "-c",
+        "port=SWD",
+        "freq=4000",
+        "-w",
+        "${workspaceFolder}/build/Debug/ros.elf",
+        "-v",
+        "-rst"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "CMake: Build Debug",
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    }
+  ]
+}

@@ -535,16 +535,6 @@
               <FilePath>..\BSP\bsp_bxcan.h</FilePath>
             </File>
             <File>
-              <FileName>bsp_pwm.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\BSP\bsp_pwm.c</FilePath>
-            </File>
-            <File>
-              <FileName>bsp_pwm.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\BSP\bsp_pwm.h</FilePath>
-            </File>
-            <File>
               <FileName>encoder.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BSP\encoder.c</FilePath>
@@ -573,16 +563,6 @@
               <FileName>PID.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\BSP\PID.h</FilePath>
-            </File>
-            <File>
-              <FileName>bsp_pwm_driver.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\BSP\bsp_pwm_driver.c</FilePath>
-            </File>
-            <File>
-              <FileName>bsp_pwm_driver.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\BSP\bsp_pwm_driver.h</FilePath>
             </File>
           </Files>
         </Group>

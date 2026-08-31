@@ -3,7 +3,7 @@
 日期：2026-08-24
 目标主机：瑞芯微 RK3588 ELF2（Linux）
 目标设备：优信电子 65407 / STM32F407VET6 开发板及其底盘固件
-状态：初版完整设计，允许后续按实物资料修订
+状态：初版完整设计，允许后续按实物资料修订。2026-08-24 评审修订：启动时槽校验、先标记后擦除、DFU UPLOAD 拒绝、密钥表与密钥轮换、确认 API 硬约束
 
 ## 1. 目标
 
@@ -47,6 +47,7 @@
 | 电机方向 | `PB12-PB15` | TB6612 两路方向 |
 | 物理急停 | `PE1/EXTI1` | 低有效、常闭回路 |
 | 强制自定义 Bootloader | ELF2 GPIO -> STM32 普通 GPIO | 两端具体 GPIO 不在本版冻结；不得连接 STM32 `BOOT0` |
+| 维护跳线（alt2 使能） | STM32 普通 GPIO | 服务模式专用；未短接时 alt2 不枚举，具体引脚待冻结 |
 | STM32 复位 | `NRST` | 由 ELF2 GPIO 经安全电路控制 |
 
 CAN1 不改为 CAN2。CAN2 的 `PB5/PB6` 会冲突舵机，`PB12/PB13` 会冲突 TB6612；CAN1 重映射到 `PB8/PB9` 能同时释放 `PA11/PA12` 给 USB。
@@ -128,12 +129,12 @@ STM32F407VE 具有 512 KiB 主 Flash。按实际扇区边界划分：
 | 区域 | Flash 扇区 | 地址范围 | 大小 | 用途 |
 |---|---|---:|---:|---|
 | Bootloader | S0-S1 | `0x08000000-0x08007FFF` | 32 KiB | 自定义 DFU、验签、启动选择 |
-| Metadata A | S2 | `0x08008000-0x0800BFFF` | 16 KiB | 元数据日志副本 |
-| Metadata B | S3 | `0x0800C000-0x0800FFFF` | 16 KiB | 元数据日志副本 |
+| Metadata A | S2 | `0x08008000-0x0800BFFF` | 16 KiB | 元数据日志 + 密钥表副本 |
+| Metadata B | S3 | `0x0800C000-0x0800FFFF` | 16 KiB | 元数据日志 + 密钥表副本 |
 | Application A | S4-S5 | `0x08010000-0x0803FFFF` | 192 KiB | A 槽 |
 | Application B | S6-S7 | `0x08040000-0x0807FFFF` | 256 KiB | B 槽 |
 
-发布镜像统一限制为不超过 192 KiB。B 槽多出的空间不用于发布更大的版本，以保证 A/B 对称可升级。
+发布镜像统一限制为不超过 191 KiB。每个槽最后 1 KiB 为 descriptor 持久副本区（A 槽 `0x0803FC00-0x0803FFFF`，B 槽 `0x0807FC00-0x0807FFFF`），保存两份带 CRC32 的 descriptor 副本，由 Bootloader 验签后写入，不属于 DFU 下载范围。B 槽多出的空间不用于发布更大的版本，以保证 A/B 对称可升级。
 
 ### 5.1 绝对链接问题
 
@@ -187,6 +188,10 @@ REJECTED    试运行失败或校验失败，不得自动启动
 4. 只有新记录有效时才认为状态变化完成；
 5. 掉电或擦写中断时保留旧记录。
 
+**先标记、后擦除**：覆盖写入一个槽之前，Bootloader 必须先在 metadata 日志中追加一条该槽状态为 `EMPTY` 的新记录并读回校验，然后才允许擦除该槽。此后任何时刻断电，旧的 `CONFIRMED`/`VALID` 记录已被 `EMPTY` 取代，半截镜像不会被当作可启动槽。槽内写入顺序固定为：擦除 → 镜像 → 验签 → descriptor 副本 → metadata 状态更新，任何一步中断都可安全重来。
+
+**日志写满与磨损**：两个 metadata 扇区均为追加日志，写满后执行 compaction——把最新有效记录追加到另一副本、读回校验后再擦除本扇区，遵循同样的先写后擦顺序；compaction 期间断电最多损失最新一条记录，由 generation 规则保证安全。metadata 擦写集中在启动次数、槽状态和确认等低频事件上，两副本均摊后寿命足够，不实施按扇区磨损均衡。
+
 Bootloader 优先启动尚有剩余试启动次数的 `TESTING` 槽；没有可试运行槽时启动最新有效的 `CONFIRMED` 槽。达到三次失败的 `TESTING` 槽先原子标记为 `REJECTED`，再回滚，不能继续尝试。
 
 ## 7. 镜像、Descriptor 和签名
@@ -202,9 +207,10 @@ firmware_slot_a.descriptor
 firmware_slot_b.descriptor
 manifest.json
 manifest.sig
+key_update.blob      # 仅发布密钥轮换时提供
 ```
 
-JSON 是服务器和人工可读索引；Bootloader 不解析复杂 JSON。发布系统必须直接生成并签名固定长度的二进制 descriptor，ELF2 只能校验和传输，不能把已签名 JSON 转换为另一份未签名头。
+JSON 是服务器和人工可读索引；Bootloader 不解析复杂 JSON。发布系统必须直接生成并签名固定长度的二进制 descriptor，ELF2 只能校验和传输，不能把已签名 JSON 转换为另一份未签名头。`key_update.blob` 由维护私钥离线签名，ota-agent 在 DFU 阶段必须先经 alt3 完成安装，再写入新密钥签名的镜像。
 
 ### 7.2 固定 descriptor
 
@@ -224,9 +230,10 @@ struct ota_image_descriptor_v1 {
     uint32_t firmware_version;
     uint32_t security_version;
     uint32_t min_bootloader_version;
+    uint32_t key_version;           /* 验签所用公钥版本 */
     uint8_t  image_sha256[32];
     uint8_t  build_id[16];
-    uint8_t  reserved[24];
+    uint8_t  reserved[20];
     uint8_t  signature_rs[64];      /* ECDSA P-256 r||s */
 };
 ```
@@ -241,11 +248,15 @@ descriptor_without_signature
 
 然后 Bootloader 对 descriptor 指定的镜像范围计算 SHA-256，并与 `image_sha256` 比较。签名验证和镜像摘要验证都通过后，槽才可变为 `VALID`。
 
+Bootloader 依据 `key_version` 从密钥表（§8.1）选择验签公钥，未知 `key_version` 直接拒绝。验证通过后，Bootloader 把该 descriptor 写入目标槽尾部的持久副本区（双副本 + CRC32），作为启动时校验的锚点。
+
 ### 7.3 版本策略
 
 - `firmware_version` 用于显示和运维；
 - `security_version` 用于防降级；
-- 普通发布公钥只允许 `security_version` 大于设备当前安全版本的镜像；
+- 普通发布公钥只允许 `security_version` **不小于**防降级基线的镜像（`>=`）；基线 = 两槽中所有 `VALID`/`TESTING`/`CONFIRMED` 镜像 `security_version` 的最大值，由 Bootloader 在验签后从 descriptor 重导出并写入 metadata，不单独信任 metadata 中可被覆盖的字段；
+- 功能版本升级保持 `security_version` 不变是正常发布，不视为降级；
+- 被标记 `REJECTED` 的镜像允许重新写入同一槽（签名与防降级检查仍然生效），写入后 `boot_attempts` 归零，视为一次新的试运行；
 - 自动回滚只允许回到此前的 `CONFIRMED` 槽，不视为降级攻击；
 - 有意安装更低安全版本必须使用独立维护签名密钥，并且只能通过维护流程；
 - Bootloader 版本低于 `min_bootloader_version` 时拒绝安装；
@@ -256,13 +267,25 @@ descriptor_without_signature
 - 曲线：NIST P-256；
 - 摘要：SHA-256；
 - 签名格式：固定 64 字节 `r||s`，避免 DER 长度解析差异；
-- 公钥：未压缩 P-256 点 `04 || X || Y`，编译进 Bootloader 只读区域；
+- 公钥：未压缩 P-256 点 `04 || X || Y`；发布公钥与维护公钥编译进 Bootloader 只读区域，轮换公钥存于 metadata 密钥表（§8.1）；
 - 发布私钥：只存在离线签名机或受控 CI 签名环境，不放在 ELF2；
 - ELF2 保存服务器证书/公钥用于 HTTPS，但不拥有固件签名私钥；
 - Bootloader 必须拒绝未知产品、硬件、slot、地址、大小和保留字段；
 - ECDSA 随机数只在签名端生成，Bootloader 只做验证，不需要保存私钥。
 
 STM32 端可选用适配 STM32F4 的裁剪密码库实现 SHA-256/ECDSA P-256，但必须进行静态链接大小评估，Bootloader 总大小硬上限为 32 KiB。不能为了满足空间而删除签名校验、版本检查或地址范围检查。
+
+### 8.1 密钥表与轮换
+
+Bootloader 固化初始发布公钥（`key_version = 0`）与维护公钥于只读区域。密钥表位于 metadata 扇区对，沿用 CRC32 + generation 双副本纪律，记录 `(key_version, public_key)`，`key_version` 单调递增：
+
+- 验签公钥选择：descriptor 的 `key_version` 必须等于密钥表中最新（即当前）`key_version`，否则拒绝——旧密钥签名的镜像在轮换后自动失效；
+- 新公钥经密钥更新 blob 安装：blob 由维护私钥离线签名，经 DFU alt setting 3 传输，Bootloader 验签且 `key_version` 大于当前值才写入密钥表；任何无效写入都被拒绝且不改变密钥表；
+- 发布私钥泄露时：维护密钥签发新发布公钥（版本递增），ELF2 的 manifest 先下发密钥 blob，再下发新私钥签名的镜像；泄露密钥自此在所有设备上失效；
+- 密钥表损坏时回退固化发布公钥；镜像 `key_version > 0` 而密钥表不可用，该槽不得启动；
+- 维护私钥的保管与轮换见 §17。
+
+固件机密性：镜像明文经 HTTPS 到 ELF2、明文经本地 USB 到 STM32。本设计接受镜像不加密——物理攻击者本可拆板或接触电路；若后续需要保密，可扩展为 descriptor 携带 AES-GCM 密钥信封，不作为当前范围。
 
 ## 9. OTA 状态机
 
@@ -289,6 +312,7 @@ IDLE
 BOOT
  -> VALIDATE_METADATA
  -> SELECT_SLOT
+ -> VERIFY_SELECTED_SLOT
  -> DFU_IDLE
  -> RECEIVE_DESCRIPTOR
  -> RECEIVE_IMAGE
@@ -297,7 +321,9 @@ BOOT
  -> JUMP_APPLICATION
 ```
 
-无有效 `CONFIRMED` 槽，或全部槽验签失败时，Bootloader 停留在 `DFU_IDLE`，不得跳转未知镜像。
+`VERIFY_SELECTED_SLOT` 在每次启动时执行：读取所选槽尾部的 descriptor 持久副本（两份取 CRC 正确者），按 `key_version` 选择公钥验签，再对镜像范围计算 SHA-256 并与 `image_sha256` 比对。任一步失败则该槽标记 `REJECTED`，改选另一槽重新校验。SHA-256 + ECDSA 在 168 MHz 下合计约百毫秒级，验证期间输出保持 §10.2 的安全状态。该检查统一覆盖：写入中断、Flash 位翻转、metadata 与镜像内容不一致。
+
+无有效 `CONFIRMED` 槽，或启动校验全部槽失败时，Bootloader 停留在 `DFU_IDLE`，不得跳转未知镜像。
 
 ### 9.3 应用确认
 
@@ -312,7 +338,9 @@ BOOT
 - 三次失败后该槽标记 `REJECTED`，Bootloader 启动上一个 `CONFIRMED` 槽；
 - 已经 `CONFIRMED` 的镜像发生一次运行时 IWDG 复位时记录故障，但不自动回滚到更旧版本。
 
-应用确认 API 必须只允许当前运行槽调用，并检查 descriptor、metadata generation 和健康条件，避免旧应用误确认新槽。
+应用确认 API 必须只允许当前运行槽调用，并检查 descriptor、metadata generation 和健康条件，避免旧应用误确认新槽。以下硬约束由 Bootloader 侧共享 API（不可变 Flash 代码）强制，不依赖应用自觉：确认调用点（返回地址）必须落在当前运行槽区间、每次启动至多一次、且距本次启动的运行时不少于健康窗口时长；时间基准为 Bootloader 启动、应用不得停止或回写的独立单调计时器。应用只负责提供健康输入（CAN 心跳新鲜、无锁存故障等）。有缺陷的应用可以拒绝确认，但不能提前确认、重复确认或替其他槽确认。
+
+共享 API 的 metadata Flash 写例程必须复制到 RAM 执行：F407 无双 Bank，扇区擦除期间指令取指停顿可达数百毫秒，RAM 执行才能保证确认写入期间控制逻辑不冻结；调用前应用必须已把电机、舵机置于安全输出，擦除期间 PWM 保持安全电平。
 
 IWDG 一旦启动不能由应用关闭。Bootloader 在进行可能较长的 Flash 擦写、SHA-256 和 ECDSA 验证时按自身健康检查喂狗；进入 `TESTING` 槽前重新建立明确的 2 秒监督节奏。应用只能在调度和安全健康门控通过时喂狗，不能由无条件定时中断喂狗。
 
@@ -352,13 +380,16 @@ Bootloader 实现 USB DFU Device，建议提供：
 - 一个 DFU interface；
 - alt setting 0：slot A；
 - alt setting 1：slot B；
-- alt setting 2：metadata/受控维护区（默认禁用）；
-- 下载地址和长度只能落在当前 alt 对应的槽区间；
+- alt setting 2：metadata/受控维护区（仅维护跳线短接时枚举）；
+- alt setting 3：密钥表（仅接受维护密钥签名的密钥更新 blob，验签失败不写入）；
+- 下载地址和长度只能落在当前 alt 对应槽的镜像区间（不含槽尾部 descriptor 副本区）；
+- descriptor 的 `slot_id` 必须与当前 alt setting 一致，不一致直接拒绝；
+- 所有 UPLOAD/读命令一律拒绝：RDP1 下自定义 DFU 不得成为固件读回通道，包括 `dfu-util` 可能发起的读取；
 - 禁止写 Bootloader、其他槽和 option bytes；
 - 每个块写入后可读回校验；
 - `GETSTATUS` 在擦除、编程和验签期间返回正确状态；
 - `ABORT`、USB 断开和超时必须回到安全 DFU 状态；
-- 完整镜像和 descriptor 验证通过后才更新 metadata，不能边写边标记可启动。
+- 完整镜像和 descriptor 验证通过后才更新 metadata 为 `VALID`/`TESTING`，不能边写边标记可启动；擦除前的 `EMPTY` 标记是唯一例外（§6）。
 
 ELF2 使用 `dfu-util` 或兼容的 libusb DFU 客户端。Bootloader 的 USB VID/PID、DFU functional descriptor、alt 名称和状态码需要在实现阶段冻结并写入 `docs/OTA_PROTOCOL.md`。
 
@@ -379,11 +410,11 @@ STM32 开发板 USB VBUS 与车辆电源不能无条件并联。推荐：
 
 生产烧录流程：
 
-1. 使用受控工具写入 Bootloader、公钥、初始应用和 metadata；
+1. 使用受控工具写入 Bootloader、发布/维护公钥、初始密钥表、初始应用和 metadata；
 2. 读回验证 Bootloader 和公钥；
 3. 对 Bootloader 扇区启用 WRP 写保护；
 4. 设置 RDP Level 1；
-5. 记录 option bytes 和设备序列号；
+5. 记录 option bytes、设备序列号、密钥表内容与 `key_version`；
 6. 通过 ELF2 执行一次签名升级、断电恢复和回滚演练。
 
 RDP Level 0 仅用于开发。RDP Level 1 到 Level 0 会触发主 Flash mass erase，因此不可作为普通现场恢复方法。RDP Level 2 不采用。
@@ -398,7 +429,8 @@ RDP Level 0 仅用于开发。RDP Level 1 到 Level 0 会触发主 Flash mass er
 - slot A/B descriptor；
 - slot A/B BIN；
 - descriptor 签名；
-- 兼容性、发布日期和撤销状态。
+- 兼容性、发布日期和撤销状态；
+- 发布密钥轮换时的 `key_update.blob`。
 
 服务器必须支持 HTTPS、版本清单原子发布、历史版本保留和撤销标记。撤销标记不能替代设备端签名和防降级检查。
 
@@ -427,6 +459,7 @@ ELF2 预检失败时不得操作 GPIO。DFU 失败时不得清除当前 `CONFIRM
 ```text
 firmware_version
 security_version
+key_version
 running_slot
 image_state (TESTING or CONFIRMED)
 bootloader_api_version
@@ -451,7 +484,12 @@ bootloader_api_version
 - security version 降级拒绝；
 - 普通发布密钥不能降级，维护密钥可按策略授权；
 - `dfu-util` 断点、重复块、短包、长包、USB 断开和重连；
-- 当前 A 写 B、当前 B 写 A 的槽位选择。
+- 当前 A 写 B、当前 B 写 A 的槽位选择；
+- 所有 UPLOAD 读请求被拒绝；
+- descriptor `slot_id` 与 alt setting 不一致被拒绝；
+- `key_version` 未知或非当前版本被拒绝；
+- 密钥更新 blob：正确签名安装、错误签名拒绝、版本回退拒绝、无效写入不改变密钥表；
+- alt2 未跳线不枚举，跳线后仅允许 metadata 区；alt3 仅接受维护密钥签名 blob。
 
 ### 15.2 STM32 Bootloader 测试
 
@@ -464,7 +502,12 @@ bootloader_api_version
 - 确认后单次 IWDG 只记录运行时故障；
 - 无有效槽停留 DFU；
 - Bootloader 写保护区域拒绝访问；
-- 地址越界不能擦写 Bootloader、metadata 或另一槽。
+- 地址越界不能擦写 Bootloader、metadata 或另一槽；
+- 覆盖 `CONFIRMED` 槽写入时，在每个数据块边界断电后均不得启动半截镜像（`EMPTY` 标记必须先于擦除生效）；
+- 启动校验：篡改槽内任一字节或 descriptor 副本后启动被拒，改选另一槽或停留 DFU；
+- metadata 写满后 compaction 的各断电点恢复；
+- 确认 API：窗口未满调用、重复调用、非当前槽调用均被拒绝；
+- 确认写入期间电机/舵机保持安全输出，无因擦除停顿导致的控制超时。
 
 ### 15.3 板级测试
 
@@ -497,15 +540,17 @@ bootloader_api_version
 
 ### Phase 2：纯 Bootloader 状态和元数据
 
-- 实现 metadata 固定结构、CRC、generation 和双副本；
+- 实现 metadata 固定结构、CRC、generation、双副本、先标记 `EMPTY` 后擦除和写满 compaction；
 - 实现槽状态、试启动次数和 reset reason；
 - 实现镜像边界和向量表检查；
+- 实现启动时槽校验（descriptor 副本验签 + 镜像 SHA-256）；
 - 先使用测试公钥和固定测试镜像完成主机无关单元测试。
 
 ### Phase 3：密码学和 DFU
 
 - 集成裁剪 SHA-256/ECDSA P-256 验签；
-- 实现 USB DFU descriptors、alt setting 和写入范围；
+- 实现密钥表、`key_version` 选择与密钥更新 blob（alt3）；
+- 实现 USB DFU descriptors、alt setting 和写入范围，含 UPLOAD 拒绝与 descriptor 副本区写入；
 - 实现 descriptor + BIN 的端到端验证；
 - 以 `dfu-util` 完成单板下载。
 
@@ -513,7 +558,7 @@ bootloader_api_version
 
 - 集成 IWDG 2 秒配置；
 - 实现 30 秒健康窗口和 3 次试启动；
-- 实现 Bootloader 共享 API 和 metadata 确认；
+- 实现 Bootloader 共享 API 和 metadata 确认，硬约束（时长、单次、槽位）在 API 内强制，Flash 写例程 RAM 执行；
 - 注入 HardFault、调度卡死、CAN 失联和看门狗复位验证回滚。
 
 ### Phase 5：ELF2 OTA Agent
@@ -526,7 +571,7 @@ bootloader_api_version
 ### Phase 6：生产保护和车辆验收
 
 - 验证 WRP、RDP1 和维修恢复流程；
-- 完成断电、拔线、回滚、降级拒绝和签名密钥轮换演练；
+- 完成断电、拔线、回滚、降级拒绝、密钥更新 blob 轮换和发布密钥泄露应急预案演练；
 - 形成带原始日志的升级验收记录。
 
 ## 17. 待后续冻结的细节
@@ -542,7 +587,10 @@ bootloader_api_version
 - CAN 固件身份只读扩展的 CAN ID、帧布局和发送周期；
 - 服务器 API、认证方式和签名机部署；
 - 生产板 USB D+ 额外上拉的处理方式；
-- 现场维护密钥的保管和轮换流程。
+- 现场维护密钥的保管和轮换流程；
+- alt2 维护跳线的具体 GPIO；
+- 密钥更新 blob 的格式与密钥表布局；
+- metadata compaction 触发阈值与日志记录长度。
 
 ## 18. 参考资料
 

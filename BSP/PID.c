@@ -1,36 +1,90 @@
 #include "PID.h"
 
-/**
-  * 函    数：PID计算及结构体变量值更新
-  * 参    数：PID_t * 指定结构体的地址
-  * 返 回 值：无
-  */
+static float PID_Clamp(float value, float min_value, float max_value)
+{
+    if (value > max_value) {
+        return max_value;
+    }
+    if (value < min_value) {
+        return min_value;
+    }
+    return value;
+}
+
+static float PID_RawOutput(const PID_t *p, float integral, float derivative)
+{
+    return (p->Kp * p->Error0) + (p->Ki * integral) + (p->Kd * derivative);
+}
+
+void PID_Reset(PID_t *p)
+{
+    if (p == 0) {
+        return;
+    }
+
+    p->Out = 0.0f;
+    p->Error0 = 0.0f;
+    p->Error1 = 0.0f;
+    p->ErrorInt = 0.0f;
+}
+
+void PID_UpdateDt(PID_t *p, float dt_s)
+{
+    float previous_error;
+    float previous_integral;
+    float candidate_integral;
+    float derivative = 0.0f;
+    float current_raw;
+    float current_clamped;
+    float candidate_raw;
+    float candidate_clamped;
+    uint8_t accept_integral = 0U;
+
+    if (p == 0) {
+        return;
+    }
+
+    previous_error = p->Error0;
+    previous_integral = p->ErrorInt;
+
+    p->Error1 = previous_error;
+    p->Error0 = p->Target - p->Actual;
+
+    if (dt_s > 0.0f) {
+        derivative = (p->Error0 - p->Error1) / dt_s;
+    }
+
+    if ((p->Ki == 0.0f) || (dt_s <= 0.0f)) {
+        p->ErrorInt = 0.0f;
+        p->Out = PID_Clamp(PID_RawOutput(p, p->ErrorInt, derivative), p->OutMin, p->OutMax);
+        return;
+    }
+
+    candidate_integral = previous_integral + (p->Error0 * dt_s);
+
+    current_raw = PID_RawOutput(p, previous_integral, derivative);
+    current_clamped = PID_Clamp(current_raw, p->OutMin, p->OutMax);
+    candidate_raw = PID_RawOutput(p, candidate_integral, derivative);
+    candidate_clamped = PID_Clamp(candidate_raw, p->OutMin, p->OutMax);
+
+    if (current_raw == current_clamped) {
+        accept_integral = 1U;
+    } else if ((current_clamped >= p->OutMax) && (p->Error0 < 0.0f)) {
+        accept_integral = 1U;
+    } else if ((current_clamped <= p->OutMin) && (p->Error0 > 0.0f)) {
+        accept_integral = 1U;
+    }
+
+    if (accept_integral != 0U) {
+        p->ErrorInt = candidate_integral;
+        p->Out = candidate_clamped;
+    } else {
+        p->ErrorInt = previous_integral;
+        p->Out = current_clamped;
+    }
+}
+
 void PID_Update(PID_t *p)
 {
-	/*获取本次误差和上次误差*/
-	p->Error1 = p->Error0;					//获取上次误差
-	p->Error0 = p->Target - p->Actual;		//获取本次误差，目标值减实际值，即为误差值
-	
-	/*外环误差积分（累加）*/
-	/*如果Ki不为0，才进行误差积分，这样做的目的是便于调试*/
-	/*因为在调试时，我们可能先把Ki设置为0，这时积分项无作用，误差消除不了，误差积分会积累到很大的值*/
-	/*后续一旦Ki不为0，那么因为误差积分已经积累到很大的值了，这就导致积分项疯狂输出，不利于调试*/
-	if (p->Ki != 0)					//如果Ki不为0
-	{
-		p->ErrorInt += p->Error0;	//进行误差积分
-	}
-	else							//否则
-	{
-		p->ErrorInt = 0;			//误差积分直接归0
-	}
-	
-	/*PID计算*/
-	/*使用位置式PID公式，计算得到输出值*/
-	p->Out = p->Kp * p->Error0
-		   + p->Ki * p->ErrorInt
-		   + p->Kd * (p->Error0 - p->Error1);
-	
-	/*输出限幅*/
-	if (p->Out > p->OutMax) {p->Out = p->OutMax;}	//限制输出值最大为结构体指定的OutMax
-	if (p->Out < p->OutMin) {p->Out = p->OutMin;}	//限制输出值最小为结构体指定的OutMin
+    PID_UpdateDt(p, 1.0f);
 }

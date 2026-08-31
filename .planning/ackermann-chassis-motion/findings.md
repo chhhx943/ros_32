@@ -1,0 +1,15 @@
+# Findings
+
+- The approved attachment contains 69 sections and 2,563 source lines; the prior repository design was only a 117-line summary. The complete attachment is now the committed design baseline at `docs/superpowers/specs/2026-08-31-ackermann-chassis-motion-design.md` (`5e99a02`).
+- `tools/pid/protocol.py::encode_velocity_group()` already creates `0x120` then `0x121` with the frozen V1 byte layout. Its transport convention treats no exception from `_send(frame)` as success.
+- The protocol codec accepts steering up to 1000 mrad and wheels up to 3000 mm/s, while the vehicle layer must enforce the tighter 349 mrad steering limit and conservative measured profile speed.
+- `BSP/bsp_bxcan.c` decodes signed little-endian steering/wheel values and validates matching sequence/mode; exact-byte host tests can cross-check the real MCU layout.
+- Existing tests use `unittest` and flat `tests/test_*.py` files, so the vehicle tests will follow that convention.
+- Python 3.9 bytecode is present, so public annotations must not use PEP 604 `X | None` syntax.
+- Existing progress records show a successful lifted-wheel 600 mm/s closed-loop bench sequence. This is the safest evidence-backed default ceiling currently available; it is not a final ground-speed certification.
+- The working tree is heavily dirty and contains required untracked controller/protocol code. A new git worktree would lose that context, so implementation stays in the current workspace and touches only new host files plus the implementation plan.
+- Final software evidence: Python 3.9.13; 26/26 vehicle tests; 12/12 focused host/MCU protocol tests; 119/119 full Python regression; `cmake --build build\\Debug --target ros` exit 0; scoped diff check exit 0.
+- End-to-end sample `700 mm/s, 500 mrad` with the 600 mm/s profile produced applied body speed `519.878491`, steering `349 mrad`, radius `389.317550 mm`, left/right targets `439.756983/600.0 mm/s`, and committed `0x120`/`0x121` V1 frames from one result.
+- Hardware H3 evidence: the dedicated `SteeringBench` loopback firmware completed five zero-wheel-speed phases on the connected STM32F4. Readback from `g_steering_bench_result` at `0x2000027C` showed `passed=1`, no TX failures, and PWM `1500 → 1572 → 1500 → 1428 → 1500 µs`, matching `0° → +5° → 0° → −5° → 0°`. Normal Debug firmware was restored afterward.
+- The first bench readback showed an off-by-one phase sample and exposed that the pre-existing MCU path neutralized steering for zero-speed VELOCITY commands. The correction is limited to valid STANDBY static-steering commands; wheels remain COAST and faults/estop still force neutral.
+- H4 lifted-wheel evidence is inconclusive/failed on differential ordering: target vectors were correctly encoded and applied (`183/217` for +200 mrad, `217/183` for −200 mrad), but one-second encoder deltas were `2568/2500` and `752/821` respectively. This may be low-speed PID/transient behavior or a channel/mapping issue; do not advance to ground testing until isolated.

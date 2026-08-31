@@ -34,6 +34,9 @@ extern "C" {
 
 /* USER CODE BEGIN Private defines */
 
+#define PHYSICAL_ESTOP_Pin       GPIO_PIN_1
+#define PHYSICAL_ESTOP_GPIO_Port GPIOE
+
 /* USER CODE END Private defines */
 
 void MX_GPIO_Init(void);

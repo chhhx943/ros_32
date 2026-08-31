@@ -20,14 +20,28 @@
 #include "main.h"
 #include "can.h"
 #include "tim.h"
+#include "usb_otg.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "pwm_app.h"
 #include "bsp_motor.h"
 #include "encoder.h"
 #include "PID.h"
+#include "bsp_bxcan.h"
+#include "chassis_control.h"
+#ifdef BSP_BXCAN_RUN_LOOPBACK_SELF_TEST
+#include "bsp_bxcan_loopback.h"
+#endif
+#if defined(CAN_MOTOR_BENCH_TEST) || defined(CALIBRATION_BENCH_TEST)
+#include "can_motor_bench.h"
+#endif
+#ifdef STEERING_BENCH_TEST
+#include "steering_bench.h"
+#endif
+#ifdef ACKERMANN_BENCH_TEST
+#include "ackermann_bench.h"
+#endif
 
 /* USER CODE END Includes */
 
@@ -43,8 +57,6 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-PWM_Handle_t pwm1;
-PWM_Handle_t pwm2;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -97,8 +109,57 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+  MX_TIM4_Init();
+  MX_TIM6_Init();
+  MX_USB_OTG_FS_USB_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_Base_Start_IT(&htim1);
+	HAL_TIM_Base_Start_IT(&htim2); // 启动中断模式
+  HAL_TIM_Base_Start_IT(&htim3);
+  HAL_TIM_Base_Start_IT(&htim6);
 
+#ifdef MOTOR_BENCH_TEST
+  /* 一次性 PWM 台架，按 2026-08-29 spec：200/1000 占空比，结束时 COAST */
+  Motor_Init();
+  Motor_CoastAll();
+  Motor_Drive(1U, 200);
+  HAL_Delay(3000);
+  Motor_Coast(1U);
+  HAL_Delay(1000);
+  Motor_Drive(2U, 200);
+  HAL_Delay(3000);
+  Motor_Coast(2U);
+  while (1)
+  {
+  }
+#elif defined(BSP_BXCAN_RUN_LOOPBACK_SELF_TEST)
+  BSP_BXCAN_RunLoopbackSelfTest(&hcan1);
+  while (1)
+  {
+  }
+#elif defined(CAN_MOTOR_BENCH_TEST)
+  CAN_Motor_Bench_Run();
+  while (1)
+  {
+  }
+#elif defined(CALIBRATION_BENCH_TEST)
+  CAN_Motor_Bench_RunCalibration();
+  while (1)
+  {
+  }
+#elif defined(STEERING_BENCH_TEST)
+  Steering_Bench_Run();
+  while (1)
+  {
+  }
+#elif defined(ACKERMANN_BENCH_TEST)
+  Ackermann_Bench_Run();
+  while (1)
+  {
+  }
+#else
+  Chassis_ControlInit();
+#endif
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -108,6 +169,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    Chassis_ControlProcess(HAL_GetTick());
   }
   /* USER CODE END 3 */
 }
@@ -136,7 +198,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLM = 4;
   RCC_OscInitStruct.PLL.PLLN = 168;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
+  RCC_OscInitStruct.PLL.PLLQ = 7;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();

@@ -41,6 +41,8 @@ class PwmOwnershipTest(unittest.TestCase):
             "Core/Src/main.c",
             "CMakeLists.txt",
             "MDK-ARM/ros.uvprojx",
+            "MDK-ARM/ros.uvoptx",
+            "MDK-ARM/ros.uvguix.cuihuaxin",
         ):
             text = read_rel(rel_path)
             self.assertNotRegex(text, r"bsp_pwm|pwm_app|PWM_Handle_t|BSP_PWM_")

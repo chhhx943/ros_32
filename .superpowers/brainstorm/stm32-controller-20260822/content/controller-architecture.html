@@ -1,0 +1,86 @@
+<h2>STM32 底层控制器：推荐分层与数据流</h2>
+<p class="subtitle">重点核对：中断只做最小工作，安全状态机拥有最终输出裁决权，控制与协议彼此隔离。</p>
+
+<div style="display:grid;grid-template-columns:180px minmax(520px,1fr) 210px;gap:14px;align-items:stretch;margin-top:22px">
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div style="border-left:4px solid #4361ee;padding:12px;background:#f5f7ff">
+      <div class="label">上位机</div>
+      <h3 style="margin:4px 0 6px">ROS2</h3>
+      <p style="margin:0">1 Mbit/s CAN<br>20 ms 控制组</p>
+    </div>
+    <div style="border-left:4px solid #0f766e;padding:12px;background:#f0fdfa">
+      <div class="label">固定节拍</div>
+      <h3 style="margin:4px 0 6px">TIM6 · 1 kHz</h3>
+      <p style="margin:0">10 ms 控制事件<br>20 ms 反馈事件</p>
+    </div>
+    <div style="border-left:4px solid #b91c1c;padding:12px;background:#fff5f5">
+      <div class="label">硬件急停</div>
+      <h3 style="margin:4px 0 6px">PE1 · EXTI1</h3>
+      <p style="margin:0">常闭、低有效<br>断线即急停</p>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:9px">
+    <div style="border:1px solid #cbd5e1;padding:12px;background:#f8fafc">
+      <div class="label">通信层</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:7px">
+        <div style="padding:10px;background:white;border:1px solid #dbe3ec"><strong>bxcan_transport</strong><br><span style="color:#64748b">过滤、RX 事件、非阻塞 TX</span></div>
+        <div style="padding:10px;background:white;border:1px solid #dbe3ec"><strong>car_can_protocol</strong><br><span style="color:#64748b">编解码、双帧配对、范围/时序校验</span></div>
+      </div>
+    </div>
+    <div style="text-align:center;color:#64748b">↓ 完整且合法的 CarCommand</div>
+    <div style="border:2px solid #b91c1c;padding:12px;background:#fff7f7">
+      <div class="label" style="color:#991b1b">唯一输出裁决者</div>
+      <h3 style="margin:4px 0">safety_manager</h3>
+      <p style="margin:0">BOOT / CALIBRATION_REQUIRED / STOPPED / ACTIVE / SAFE_STOP / ESTOP / FAULT</p>
+      <p style="margin:6px 0 0;color:#7f1d1d">优先级：物理急停 = CAN 急停 ＞ 锁存故障 ＞ safe stop/超时 ＞ 正常命令</p>
+    </div>
+    <div style="text-align:center;color:#64748b">↓ 经过安全裁决的目标值与执行模式</div>
+    <div style="border:1px solid #cbd5e1;padding:12px;background:#f8fafc">
+      <div class="label">应用与控制层 · 主循环事件</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:7px">
+        <div style="padding:10px;background:white;border:1px solid #dbe3ec"><strong>steering_control</strong><br><span style="color:#64748b">mrad → 标定表 → μs</span></div>
+        <div style="padding:10px;background:white;border:1px solid #dbe3ec"><strong>wheel_control[L]</strong><br><span style="color:#64748b">10 ms 采样 + PI</span></div>
+        <div style="padding:10px;background:white;border:1px solid #dbe3ec"><strong>wheel_control[R]</strong><br><span style="color:#64748b">10 ms 采样 + PI</span></div>
+      </div>
+    </div>
+    <div style="text-align:center;color:#64748b">↓ 模式化驱动命令 / ↑ 编码器测量</div>
+    <div style="border:1px solid #cbd5e1;padding:12px;background:#f8fafc">
+      <div class="label">板级驱动层</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:7px">
+        <div style="padding:10px;background:white;border:1px solid #dbe3ec"><strong>servo_pwm</strong><br><span style="color:#64748b">TIM4_CH1 · PB6 · 50 Hz</span></div>
+        <div style="padding:10px;background:white;border:1px solid #dbe3ec"><strong>encoder_pair</strong><br><span style="color:#64748b">TIM1 / TIM2 · 累计计数</span></div>
+        <div style="padding:10px;background:white;border:1px solid #dbe3ec"><strong>tb6612</strong><br><span style="color:#64748b">TIM3 · 20 kHz<br>DRIVE / COAST / BRAKE</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div style="border-left:4px solid #b91c1c;padding:12px;background:#fff5f5">
+      <div class="label">紧急旁路</div>
+      <h3 style="margin:4px 0 6px">立即 BRAKE</h3>
+      <p style="margin:0">EXTI 或合法 CAN 急停帧可直接置闩并强制双轮短刹，不等待 10 ms 控制事件。</p>
+    </div>
+    <div style="border-left:4px solid #7c3aed;padding:12px;background:#faf5ff">
+      <div class="label">反馈快照</div>
+      <h3 style="margin:4px 0 6px">feedback_builder</h3>
+      <p style="margin:0">每 20 ms 一次性冻结状态、故障、轮速和累计位置，再发送同一 feedback_seq 的五帧。</p>
+    </div>
+    <div style="border-left:4px solid #475569;padding:12px;background:#f8fafc">
+      <div class="label">看门狗</div>
+      <h3 style="margin:4px 0 6px">IWDG</h3>
+      <p style="margin:0">仅在调度、控制和通信健康检查全部完成后喂狗。</p>
+    </div>
+  </div>
+</div>
+
+<div class="options" style="margin-top:24px">
+  <div class="option" data-choice="architecture-approved" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>架构边界正确</h3><p>继续确认安全状态机与恢复条件。</p></div>
+  </div>
+  <div class="option" data-choice="architecture-revise" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>需要调整</h3><p>在终端说明希望合并、拆分或改变的模块。</p></div>
+  </div>
+</div>

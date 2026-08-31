@@ -2,23 +2,65 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "C/C++ Runner: Debug Session",
-      "type": "cppdbg",
+      "name": "STM32: Build, Flash & Debug",
+      "type": "cortex-debug",
       "request": "launch",
-      "args": [],
-      "stopAtEntry": false,
-      "externalConsole": true,
-      "cwd": "d:/STM32cubemx/Project/ros",
-      "program": "d:/STM32cubemx/Project/ros/build/Debug/outDebug",
-      "MIMode": "gdb",
-      "miDebuggerPath": "gdb",
-      "setupCommands": [
-        {
-          "description": "Enable pretty-printing for gdb",
-          "text": "-enable-pretty-printing",
-          "ignoreFailures": true
-        }
-      ]
+      "cwd": "${workspaceFolder}",
+      "executable": "${workspaceFolder}/build/Debug/ros.elf",
+      "servertype": "stlink",
+      "device": "STM32F407VE",
+      "interface": "swd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "CMake: Build Debug",
+      "armToolchainPath": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/GNU-tools-for-STM32/bin",
+      "stlinkPath": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/STLink-gdb-server/bin/ST-LINK_gdbserver.exe",
+      "stm32cubeprogrammer": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/STM32CubeProgrammer/bin",
+      "svdFile": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/STMicroelectronics_CMSIS_SVD/STM32F407.svd",
+      "serverArgs": [
+        "--frequency",
+        "4000"
+      ],
+      "showDevDebugOutput": "none"
+    },
+    {
+      "name": "STM32: Motor Bench (BenchArm)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "executable": "${workspaceFolder}/build/BenchArm/ros.elf",
+      "servertype": "stlink",
+      "device": "STM32F407VE",
+      "interface": "swd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "CMake: Build BenchArm",
+      "armToolchainPath": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/GNU-tools-for-STM32/bin",
+      "stlinkPath": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/STLink-gdb-server/bin/ST-LINK_gdbserver.exe",
+      "stm32cubeprogrammer": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/STM32CubeProgrammer/bin",
+      "svdFile": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/STMicroelectronics_CMSIS_SVD/STM32F407.svd",
+      "serverArgs": [
+        "--frequency",
+        "1000"
+      ],
+      "showDevDebugOutput": "none"
+    },
+    {
+      "name": "STM32: Attach to Running Target",
+      "type": "cortex-debug",
+      "request": "attach",
+      "cwd": "${workspaceFolder}",
+      "executable": "${workspaceFolder}/build/Debug/ros.elf",
+      "servertype": "stlink",
+      "device": "STM32F407VE",
+      "interface": "swd",
+      "armToolchainPath": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/GNU-tools-for-STM32/bin",
+      "stlinkPath": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/STLink-gdb-server/bin/ST-LINK_gdbserver.exe",
+      "stm32cubeprogrammer": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/STM32CubeProgrammer/bin",
+      "svdFile": "D:/stm32cubeclt/STM32CubeCLT_1.19.0/STMicroelectronics_CMSIS_SVD/STM32F407.svd",
+      "serverArgs": [
+        "--frequency",
+        "4000"
+      ],
+      "showDevDebugOutput": "none"
     }
   ]
 }

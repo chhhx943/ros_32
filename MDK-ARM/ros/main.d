@@ -39,3 +39,4 @@ ros\main.o: ../BSP/bsp_pwm_driver.h
 ros\main.o: ../BSP/bsp_motor.h
 ros\main.o: ../BSP/encoder.h
 ros\main.o: ../BSP/PID.h
+ros\main.o: ../BSP/bsp_bxcan.h

@@ -1,0 +1,65 @@
+<h2>安全状态机与恢复门槛</h2>
+<p class="subtitle">所有执行器输出先经过 safety_manager。状态切换使用完整、合法且更新序列号的命令组；单帧急停是唯一例外。</p>
+
+<div style="display:grid;grid-template-columns:1fr 64px 1fr;gap:10px;align-items:center;margin-top:22px">
+  <div style="border:2px solid #475569;padding:14px;background:#f8fafc">
+    <div class="label">上电入口</div><h3 style="margin:4px 0">BOOT</h3>
+    <p style="margin:0">双轮 COAST，PWM=0；读取复位原因、校验标定、检查 PE1。</p>
+  </div>
+  <div style="text-align:center;font-size:24px;color:#64748b">→</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div style="border:2px solid #b45309;padding:14px;background:#fffbeb">
+      <div class="label">配置非法</div><h3 style="margin:4px 0">CALIBRATION_REQUIRED</h3>
+      <p style="margin:0">锁存 0x000A；电机禁止、舵机不输出。仅允许标定维护流程。</p>
+    </div>
+    <div style="border:2px solid #0f766e;padding:14px;background:#f0fdfa">
+      <div class="label">自检通过</div><h3 style="margin:4px 0">STOPPED</h3>
+      <p style="margin:0">双轮 COAST；允许合法 STOP 命令使舵机回中。</p>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 86px 1fr 86px 1fr;gap:8px;align-items:center;margin-top:18px">
+  <div style="border:2px solid #0f766e;padding:14px;background:#f0fdfa;min-height:132px">
+    <div class="label">已解除运动</div><h3 style="margin:4px 0">STOPPED</h3>
+    <p style="margin:0">收到新鲜 VELOCITY 组，且无急停/锁存故障 → ACTIVE。</p>
+  </div>
+  <div style="text-align:center;color:#475569"><div>合法速度组</div><div style="font-size:24px">⇄</div><div>STOP 组</div></div>
+  <div style="border:2px solid #2563eb;padding:14px;background:#eff6ff;min-height:132px">
+    <div class="label">闭环运行</div><h3 style="margin:4px 0">ACTIVE</h3>
+    <p style="margin:0">100 Hz 双轮 PI；转向目标生效；持续监控命令新鲜度和传感器。</p>
+  </div>
+  <div style="text-align:center;color:#b45309"><div>safe_stop<br>或 100 ms 超时</div><div style="font-size:24px">→</div></div>
+  <div style="border:2px solid #b45309;padding:14px;background:#fffbeb;min-height:132px">
+    <div class="label">可恢复停车</div><h3 style="margin:4px 0">SAFE_STOP</h3>
+    <p style="margin:0">立即目标归零并 COAST；PI 清积分。必须先收到新鲜全零 STOP 组，回到 STOPPED，禁止直接恢复运动。</p>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px">
+  <div style="border:3px solid #b91c1c;padding:15px;background:#fff1f2">
+    <div class="label" style="color:#991b1b">任意状态可进入</div><h3 style="margin:4px 0">ESTOP · 0x0001</h3>
+    <p style="margin:0"><strong>入口：</strong>PE1 低电平，或任一合法格式命令帧带 estop bit。立即 PWM=0，再令两路 IN1=IN2=1 短刹；清 PI；故障锁存。</p>
+    <p style="margin:8px 0 0"><strong>退出：</strong>PE1 连续释放 50 ms、CAN estop 清零，并收到新的全零 STOP 双帧组 + reset_fault_request。只回到 STOPPED，不直接进 ACTIVE。</p>
+  </div>
+  <div style="border:3px solid #7f1d1d;padding:15px;background:#fef2f2">
+    <div class="label" style="color:#7f1d1d">设备故障</div><h3 style="margin:4px 0">FAULT</h3>
+    <p style="margin:0"><strong>入口：</strong>编码器、驱动、看门狗复位或未知设备故障。电机 COAST，舵机保持安全标定目标或禁用。</p>
+    <p style="margin:8px 0 0"><strong>退出：</strong>仅当物理原因消失且该 fault 的协议策略允许清除；全零 STOP + reset 请求后回 STOPPED。不可软件清除的故障需人工检修/重新标定。</p>
+  </div>
+</div>
+
+<div style="border-left:4px solid #475569;padding:12px 14px;background:#f8fafc;margin-top:18px">
+  <strong>状态不等于 fault code：</strong>非锁存协议错误可上报 fault 而保持 STOPPED/SAFE_STOP；状态机负责“能不能输出”，fault code 负责“为什么不能输出”。同一时刻按严重度只发布一个主 fault，同时内部保留诊断位。
+</div>
+
+<div class="options" style="margin-top:22px">
+  <div class="option" data-choice="state-machine-approved" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>状态与恢复条件正确</h3><p>继续确认控制时序、数据快照和测试范围。</p></div>
+  </div>
+  <div class="option" data-choice="state-machine-revise" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>需要调整</h3><p>在终端指出希望放宽或收紧的转换条件。</p></div>
+  </div>
+</div>

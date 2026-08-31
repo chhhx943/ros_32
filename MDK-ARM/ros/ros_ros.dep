@@ -1,7 +1,7 @@
 Dependencies for Project 'ros', Target 'ros': (DO NOT MODIFY !)
 CompilerVersion: 5060960::V5.06 update 7 (build 960)::.\V5.06
 F (startup_stm32f407xx.s)(0x6A8935F7)(--cpu Cortex-M4.fp.sp -g --apcs=interwork -I.\RTE\_ros-ID:\stm32\ARM\CMSIS\6.1.0\CMSIS\Core\Include--pd "__UVISION_VERSION SETA 541" --pd "STM32F407xx SETA 1" --pd "_RTE_ SETA 1"--list startup_stm32f407xx.lst --xref -o ros\startup_stm32f407xx.o --depend ros\startup_stm32f407xx.d)
-F (../Core/Src/main.c)(0x6A8935DB)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../BSP -I ../Hardware-I.\RTE\_ros-ID:\stm32\ARM\CMSIS\6.1.0\CMSIS\Core\Include-D__UVISION_VERSION="541" -DSTM32F407xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F407xx-o ros\main.o --omf_browse ros\main.crf --depend ros\main.d)
+F (../Core/Src/main.c)(0x6A8952B2)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../BSP -I ../Hardware-I.\RTE\_ros-ID:\stm32\ARM\CMSIS\6.1.0\CMSIS\Core\Include-D__UVISION_VERSION="541" -DSTM32F407xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F407xx-o ros\main.o --omf_browse ros\main.crf --depend ros\main.d)
 I (../Core/Inc/main.h)(0x6A87D1E9)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x68C0255D)
 I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A87D1E9)
@@ -41,6 +41,7 @@ I (../BSP/bsp_pwm_driver.h)(0x6A893433)
 I (../BSP/bsp_motor.h)(0x6A893430)
 I (../BSP/encoder.h)(0x6A89357D)
 I (../BSP/PID.h)(0x67D3F514)
+I (../BSP/bsp_bxcan.h)(0x6A8950E2)
 F (../Core/Src/gpio.c)(0x6A89343E)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../BSP -I ../Hardware-I.\RTE\_ros-ID:\stm32\ARM\CMSIS\6.1.0\CMSIS\Core\Include-D__UVISION_VERSION="541" -DSTM32F407xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F407xx-o ros\gpio.o --omf_browse ros\gpio.crf --depend ros\gpio.d)
 I (../Core/Inc/gpio.h)(0x6A87D1E8)
 I (../Core/Inc/main.h)(0x6A87D1E9)
@@ -732,8 +733,41 @@ I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x68C0255D)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x68C0255D)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h)(0x68C0255D)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h)(0x68C0255D)
-F (..\BSP\bsp_bxcan.c)(0x6A87E434)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../BSP -I ../Hardware-I.\RTE\_ros-ID:\stm32\ARM\CMSIS\6.1.0\CMSIS\Core\Include-D__UVISION_VERSION="541" -DSTM32F407xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F407xx-o ros\bsp_bxcan.o --omf_browse ros\bsp_bxcan.crf --depend ros\bsp_bxcan.d)
-F (..\BSP\bsp_bxcan.h)(0x6A87E882)()
+F (..\BSP\bsp_bxcan.c)(0x6A895266)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../BSP -I ../Hardware-I.\RTE\_ros-ID:\stm32\ARM\CMSIS\6.1.0\CMSIS\Core\Include-D__UVISION_VERSION="541" -DSTM32F407xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F407xx-o ros\bsp_bxcan.o --omf_browse ros\bsp_bxcan.crf --depend ros\bsp_bxcan.d)
+I (..\BSP\bsp_bxcan.h)(0x6A8950E2)
+I (../Core/Inc/main.h)(0x6A87D1E9)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x68C0255D)
+I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A87D1E9)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x68C0255D)
+I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x68C0255E)
+I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f407xx.h)(0x68C0255E)
+I (../Drivers/CMSIS/Include/core_cm4.h)(0x68C0255E)
+I (D:\stm32\ARM\V5.06\include\stdint.h)(0x5E8E3CC2)
+I (../Drivers/CMSIS/Include/cmsis_version.h)(0x68C0255E)
+I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x68C0255E)
+I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x68C0255E)
+I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x68C0255E)
+I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x68C0255E)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x68C0255D)
+I (D:\stm32\ARM\V5.06\include\stddef.h)(0x5E8E3CC2)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_can.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h)(0x68C0255D)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h)(0x68C0255D)
+I (../Core/Inc/can.h)(0x6A87D1E8)
+F (..\BSP\bsp_bxcan.h)(0x6A8950E2)()
 F (..\BSP\bsp_pwm.c)(0x6A893435)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../BSP -I ../Hardware-I.\RTE\_ros-ID:\stm32\ARM\CMSIS\6.1.0\CMSIS\Core\Include-D__UVISION_VERSION="541" -DSTM32F407xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F407xx-o ros\bsp_pwm.o --omf_browse ros\bsp_pwm.crf --depend ros\bsp_pwm.d)
 I (..\BSP\bsp_pwm.h)(0x6A893436)
 I (..\BSP\bsp_pwm_driver.h)(0x6A893433)
