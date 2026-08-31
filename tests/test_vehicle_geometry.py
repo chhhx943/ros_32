@@ -29,7 +29,10 @@ class VehicleGeometryTest(unittest.TestCase):
         }
         invalid_values = (
             ("wheelbase_mm", 0.0),
+            ("wheelbase_mm", math.nan),
             ("track_mm", -1.0),
+            ("track_mm", math.inf),
+            ("tire_diameter_mm", 0.0),
             ("tire_diameter_mm", math.inf),
             ("max_steering_rad", math.pi / 2.0),
         )
