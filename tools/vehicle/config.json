@@ -1,0 +1,7 @@
+{
+  "wheelbase_mm": 141.7,
+  "track_mm": 120.0,
+  "tire_diameter_mm": 65.0,
+  "max_steering_deg": 20.0,
+  "max_wheel_speed_mm_s": 600.0
+}
