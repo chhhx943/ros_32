@@ -22,7 +22,7 @@ build Smoke
   -> host START experiment
   -> MCU RUNNING
   -> sample generation 增长
-  -> MCU COMPLETE/ABORT
+  -> MCU COMPLETE_LATCHED/ABORT_LATCHED
   -> 一次性读取 summary + ring
   -> CRC/session/experiment/generation 校验
   -> 保存结果
@@ -124,21 +124,24 @@ host test 同时检查 CMake source list，不能依赖 linker garbage collectio
 
 ### 5.1 Runtime identity layout
 
-Boot identity 固定为 40 bytes，little-endian、4-byte aligned：
+Boot identity 固定为 44 bytes，little-endian、4-byte aligned。`commit_seq` 是 seqlock：奇数表示 MCU 正在写，偶数表示一次完整提交：
 
 | Offset | Size | Field | Meaning |
 |---:|---:|---|---|
-| 0 | 4 | magic | 0x42544944 |
-| 4 | 2 | version | 1 |
-| 6 | 2 | size | 40 |
-| 8 | 4 | firmware_profile | Smoke 0xA2，AutotuneSafe 0xA1 |
-| 12 | 4 | firmware_build_id | 本次 ELF 派生的 32-bit id |
-| 16 | 4 | boot_generation | 本次 MCU boot 代数 |
-| 20 | 4 | boot_reason | POR、software reset、watchdog 等 |
-| 24 | 4 | boot_state | EARLY、INIT、READY、FAULT |
-| 28 | 4 | mailbox_version | 1 |
-| 32 | 4 | boot_count | retained boot 次数 |
-| 36 | 4 | crc32 | offset 0..35 的 CRC |
+| 0 | 4 | commit_seq | odd=writing，even=committed |
+| 4 | 4 | magic | 0x42544944 |
+| 8 | 2 | version | 1 |
+| 10 | 2 | size | 44 |
+| 12 | 4 | firmware_profile | Smoke 0xA2，AutotuneSafe 0xA1 |
+| 16 | 4 | firmware_build_id | 本次 ELF 派生的 32-bit id |
+| 20 | 4 | boot_generation | 本次 MCU boot 代数 |
+| 24 | 4 | boot_reason | POR、software reset、watchdog 等 |
+| 28 | 4 | boot_state | EARLY、INIT、READY、FAULT |
+| 32 | 4 | mailbox_version | 1 |
+| 36 | 4 | boot_count | retained boot 次数 |
+| 40 | 4 | crc32 | offset 4..39 的 CRC |
+
+host 读取 boot identity 也必须执行 `seq1 -> snapshot -> seq2`。seq1/seq2 必须相等且为偶数，snapshot 的 CRC 必须正确；否则只 retry，不将半写 identity 解释为 boot failure。超过 boot deadline 后才报告 `DATA_INTEGRITY_FAIL` 或 `BOOT_HANDSHAKE_TIMEOUT`，并禁止继续 session。
 
 boot state：
 
@@ -248,16 +251,18 @@ SESSION_BOOT      = 0
 SESSION_READY     = 1
 SESSION_ARMED    = 2
 SESSION_RUNNING  = 3
-SESSION_COMPLETE = 4
-SESSION_ABORT    = 5
+SESSION_COMPLETE_LATCHED = 4
+SESSION_ABORT_LATCHED    = 5
 ~~~
 
 唯一允许的迁移：
 
 ~~~text
 BOOT -> READY
-READY -> ARMED -> RUNNING -> COMPLETE -> READY
-READY/ARMED/RUNNING -> ABORT -> READY
+READY -> ARMED -> RUNNING -> COMPLETE_LATCHED -> READY
+READY/ARMED/RUNNING -> ABORT_LATCHED -> READY
+
+`COMPLETE_LATCHED` 和 `ABORT_LATCHED` 必须保持到 host 发送匹配当前 result 的 `ACK_RESULT`，或 MCU 接受下一条合法 `CREATE_SESSION`。在此之前 result 不得被清零或覆盖，host 不能因为一次轮询错过终态。`ACK_RESULT` 或下一次合法 CREATE_SESSION 才能清除旧 result；runner 在发起新 session 前必须已经完整读取并验证旧 result。
 ~~~
 
 state 只能由 MCU 写。host 只能写独立 request block。
@@ -268,16 +273,17 @@ runtime request 为独立 48-byte block，包含：
 magic 0x53525154
 version/size
 request_id
-request_type = CREATE_SESSION | START_EXPERIMENT | STOP | RECOVER
+request_type = CREATE_SESSION | START_EXPERIMENT | ACK_RESULT | STOP | RECOVER
 session_id
 experiment_id
 payload
 crc32
 ~~~
 
-MCU status 至少包含：
+MCU status 至少包含以下字段，且以 `commit_seq` 开头、`status_crc32` 结尾。status 的固定 size/version 必须覆盖 `commit_seq` 和 CRC：
 
 ~~~text
+commit_seq
 accepted_request_id
 accepted_session_id
 active_experiment_id
@@ -285,7 +291,6 @@ state
 session_generation
 sample_generation
 start_sample_generation
-finish_sample_generation
 sample_count
 expected_sample_count
 last_rejected_request_id
@@ -293,7 +298,32 @@ last_reject_reason
 status_crc32
 ~~~
 
-host 不能把旧 accepted_session 或 request 被清零当作 ACK。只有 status CRC 正确且 ACK 字段、generation、state 同时匹配才算 ACK。
+MCU 更新 status 使用 seqlock：先将 commit_seq 改为奇数，写完整 payload 和 CRC，执行 memory barrier，再将 commit_seq 原子写为下一个偶数。host 必须按 `seq1 -> snapshot -> seq2` 读取；只有 `seq1 == seq2`、两者为偶数且 CRC 正确，才接受 snapshot。seq 不一致、奇数或 CRC 不一致视为瞬时撕裂，继续 retry；超过本阶段 deadline 才归类 `DATA_INTEGRITY_FAIL`。
+
+host 不能把旧 accepted_session 或 request 被清零当作 ACK。只有稳定 status snapshot、ACK 字段、generation 和 state 同时匹配才算 ACK。
+
+status 固定为 68 bytes，字段布局为：
+
+| Offset | Size | Field |
+|---:|---:|---|
+| 0 | 4 | commit_seq |
+| 4 | 4 | magic 0x53544154 |
+| 8 | 2 | version 1 |
+| 10 | 2 | size 68 |
+| 12 | 4 | accepted_request_id |
+| 16 | 4 | accepted_session_id |
+| 20 | 4 | active_experiment_id |
+| 24 | 4 | state |
+| 28 | 4 | boot_generation |
+| 32 | 4 | session_generation |
+| 36 | 4 | sample_generation |
+| 40 | 4 | start_sample_generation |
+| 44 | 4 | sample_count |
+| 48 | 4 | expected_sample_count |
+| 52 | 4 | last_rejected_request_id |
+| 56 | 4 | last_reject_reason |
+| 60 | 4 | result_ack_request_id |
+| 64 | 4 | status_crc32，offset 4..63 |
 
 ## 8. Session handshake
 
@@ -305,7 +335,7 @@ host 生成不可复用的 request_id 和 session_id。写 CREATE_SESSION 后轮
 state == ARMED
 accepted_request_id == requested_request_id
 accepted_session_id == requested_session_id
-session_generation > generation_before_request
+generation_is_forward(session_generation, generation_before_request)
 boot_generation == this_boot_generation
 status_crc32 valid
 ~~~
@@ -316,11 +346,13 @@ status_crc32 valid
 
 在 ARMED 写匹配 session 的 START_EXPERIMENT。MCU：
 
-1. 记录 active_experiment_id；
-2. 记录 start_sample_generation；
-3. 清 ring/result counters；
+host 在写 START 前先从一个稳定 status snapshot 记录 `generation_before_start = sample_generation`，并将该值放入 START request payload 作为诊断 hint。MCU 接收 START 时必须先验证 request/session，再按以下顺序操作：
+
+1. 设置 active_experiment_id；
+2. 设置 start_sample_generation = 当前 sample_generation；
+3. 清 ring/result counters，但不递增 sample_generation；
 4. 写 RUNNING；
-5. 产生第一条 synthetic sample 或等待下一周期。
+5. 之后才允许第一条 sample 递增 sample_generation。
 
 host 必须读回：
 
@@ -329,11 +361,12 @@ state == RUNNING
 accepted_session_id == requested_session_id
 active_experiment_id == requested_experiment_id
 session_generation == armed_session_generation
-start_sample_generation == sample_generation_at_start
+start_sample_generation == generation_before_start
+generation_is_forward(first_sample_generation, start_sample_generation)
 status_crc32 valid
 ~~~
 
-全部成立才记录 EXPERIMENT_STARTED。写 request、request 被清零或看到非零 sample 都不能替代该确认。
+全部成立才记录 EXPERIMENT_STARTED。host 不能要求 RUNNING 读取时的 current sample_generation 仍等于启动值；第一条 sample 可能已经在 host 读取 RUNNING 前产生。写 request、request 被清零或看到非零 sample 都不能替代该确认。
 
 ### 8.3 Reject rules
 
@@ -351,20 +384,22 @@ CRC、magic、version、size、reserved、session、experiment、request_id 或�
 
 每次真实 MCU boot 递增，由 retained record 维护。session 创建和 debugger attach 不应改变它。attach 前后各读一次；变化即 ATTACH_RESET_DETECTED，停止本轮。
 
+boot_generation 只用于区分当前 retained RAM 生命周期中的 boot。若 POR 或 SRAM 丢失导致 retained record 无效，允许从 1 重新建立；这不是旧 artifact 的延续。host 必须把 `firmware_build_id + boot_generation + session_generation + session_id + experiment_id` 作为联合身份，且 request/session/experiment id 不得复用；因此 generation 从 1 重建不会与旧 artifact 混淆。
+
 ### session_generation
 
 每次 MCU 接受新的、合法、未消费的 CREATE_SESSION 递增。host 不能写入它。
 
 ### sample_generation
 
-每产生一条有效 sample 递增。每条 sample 携带当前 boot/session/experiment identity。Smoke 固定 32 条，必须满足：
+每产生一条有效 sample 递增。它在当前 boot 的 session contract 生命周期内单调，CREATE_SESSION 和 START 都不能把它清零；每条 sample 携带当前 boot/session/experiment identity。Smoke 固定 32 条，必须满足：
 
 ~~~text
-last_sample_generation - first_sample_generation + 1 == 32
+generation_delta_u32(last_sample_generation, first_sample_generation) + 1 == 32
 sample_count == 32
 ~~~
 
-RUNNING 后 deadline 内不增长，分类为 SAMPLE_PROGRESS_TIMEOUT，不是 motor failure。generation 使用无符号单调差值，禁止把正常回绕误判为回退。
+所有前后关系使用 uint32 wrap-aware delta，不使用普通 signed `>`。定义 `generation_delta_u32(newer, older) = (uint32_t)(newer - older)`；只有 delta 非零且小于 `0x80000000` 时才表示 newer 在 older 之后。RUNNING 后 deadline 内不增长，分类为 SAMPLE_PROGRESS_TIMEOUT，不是 motor failure。
 
 ## 10. Ring buffer 与 result
 
@@ -389,50 +424,48 @@ Smoke capacity=64，固定产生 32 条，不覆盖 ring。真实 actuator 以�
 
 ### 10.2 Immutable result layout
 
-result 固定分配 72 bytes：
+result 固定分配 68 bytes：
 
 | Offset | Size | Field |
 |---:|---:|---|
-| 0 | 4 | magic 0x52534C54 |
+| 0 | 4 | magic FINAL_MAGIC=0x52534C54；commit 前为 0 |
 | 4 | 2 | version 1 |
-| 6 | 2 | size 72 |
+| 6 | 2 | size 68 |
 | 8 | 4 | session_id |
 | 12 | 4 | experiment_id |
 | 16 | 4 | boot_generation |
 | 20 | 4 | session_generation |
 | 24 | 4 | first_sample_generation |
 | 28 | 4 | last_sample_generation |
-| 32 | 4 | experiment_start_generation |
-| 36 | 4 | experiment_finish_generation |
-| 40 | 4 | sample_count |
-| 44 | 4 | ring_start_index |
-| 48 | 4 | ring_count |
-| 52 | 4 | final_state |
-| 56 | 4 | abort_reason |
-| 60 | 4 | result_flags |
-| 64 | 4 | ring_crc32 |
-| 68 | 4 | result_crc32 |
+| 32 | 4 | sample_count |
+| 36 | 4 | ring_start_index |
+| 40 | 4 | ring_count |
+| 44 | 4 | final_state |
+| 48 | 4 | abort_reason |
+| 52 | 4 | result_flags |
+| 56 | 4 | ring_crc32 |
+| 60 | 4 | result_crc32 |
 
-offset 64 放 ring_crc32，offset 68 放 result_crc32。result CRC 排除 offset 68 自身；ring CRC 覆盖按 ring_start_index/ring_count 选出的完整 rows。实现必须使用该 72-byte layout，不能沿用旧的 64-byte 假设。
+result CRC 的输入是最终结构内容，其中 offset 0 使用 FINAL_MAGIC；offset 60 的 result_crc32 自身排除。RAM 中 commit 前 magic 保持为 0，不能以 magic=0 计算最终 CRC 后再改 magic。ring CRC 覆盖按 ring_start_index/ring_count 选出的完整 rows。
 
-MCU 先写 result fields、ring CRC，再写 result CRC，最后写 commit magic/valid marker。下一次合法 CREATE_SESSION 前，COMPLETE result 不得修改。
+MCU 先在局部 result 结构中写入最终 FINAL_MAGIC 并计算 result CRC；然后将 RAM result.magic 保持为 0，写入其余字段和已计算的 CRC，执行 memory barrier，最后一次原子写入 FINAL_MAGIC。host 只有读取到 FINAL_MAGIC 后才验证 result CRC。下一次合法 CREATE_SESSION 或 ACK_RESULT 前，result 不得修改。
 
 ### 10.3 COMPLETE proof
 
 host 必须同时确认：
 
 ~~~text
-result magic/version/size/CRC valid
+result magic == FINAL_MAGIC, version/size/CRC valid
+boot identity firmware_build_id == expected_build_id
 result boot_generation == this_boot_generation
 result session_id == requested_session_id
 result experiment_id == requested_experiment_id
 result session_generation == armed_session_generation
-result final_state == COMPLETE
+result final_state == COMPLETE_LATCHED
 result sample_count == expected_sample_count
 result ring_count == sample_count
-last_sample_generation >= first_sample_generation
-last_sample_generation > start_sample_generation
-experiment_finish_generation > experiment_start_generation
+generation_is_forward(last_sample_generation, first_sample_generation)
+generation_is_forward(first_sample_generation, start_sample_generation)
 every row session/experiment matches
 sample generations strictly increase
 ring CRC valid
@@ -537,6 +570,7 @@ BOOT_VERSION_MISMATCH
 BOOT_PROFILE_MISMATCH
 BOOT_BUILD_ID_MISMATCH
 BOOT_CRC_FAIL
+BOOT_SEQLOCK_TIMEOUT
 BOOT_HANDSHAKE_TIMEOUT
 SESSION_REQUEST_REJECTED
 SESSION_CRC_FAIL
@@ -547,8 +581,11 @@ EXPERIMENT_ID_MISMATCH
 SAMPLE_PROGRESS_TIMEOUT
 SAMPLE_GENERATION_INVALID
 UNEXPECTED_MCU_RESET
+STATUS_SEQLOCK_TIMEOUT
 RESULT_CRC_FAIL
 RING_CRC_FAIL
+RESULT_MAGIC_INVALID
+RESULT_COMMIT_INCOMPLETE
 RESULT_GENERATION_MISMATCH
 RESULT_SESSION_MISMATCH
 RESULT_EXPERIMENT_MISMATCH
@@ -557,7 +594,7 @@ DATA_INTEGRITY_FAIL
 RESTORE_DEBUG_FAIL
 ~~~
 
-这些 code 全部属于 ORCHESTRATION_FAILURE，不参与 motor/PID diagnosis。
+这些 code 全部属于 ORCHESTRATION_FAILURE，不参与 motor/PID diagnosis。单次 status/identity CRC 或 sequence 不一致不是立即失败：validator 在 deadline 内按 bounded retry 重读；只有一直不能得到稳定偶数 sequence 和正确 CRC，才使用对应的 seqlock timeout 或 DATA_INTEGRITY_FAIL。
 
 ## 14. LOCAL_SESSION_SMOKE
 
@@ -572,7 +609,7 @@ smoke 固定行为：
 7. actual=target，pwm=0，flags=SYNTHETIC；
 8. 固定生成 32 条；
 9. 计算 ring/result CRC；
-10. 写 COMPLETE，回到 READY，保留 result 至下一合法 session。
+10. 写 COMPLETE_LATCHED，保持 result 和终态；host 验证完整 result 后发送 ACK_RESULT，MCU 才回到 READY。若 host 直接发送下一条合法 CREATE_SESSION，MCU 可在接受该 request 时清理旧 result 并进入 ARMED。
 
 smoke 不调用 Motor_Drive、Motor_Brake、Motor_Coast、Servo output、calibration、PID、encoder、CAN command、Ackermann 或 PWM compare。pwm=0 只是 synthetic 字段，不是实测 actuator telemetry。
 
@@ -625,6 +662,15 @@ MCU/C host tests：
 - stale session/experiment reject；
 - sample generation 单调；
 - 32 sample 后才 COMPLETE；
+- COMPLETE_LATCHED 在 host 延迟轮询时仍可读到终态；
+- ABORT_LATCHED 不会瞬间丢失；
+- START 后第一条 sample 在 host 读取 RUNNING 前产生时，仍按 generation_before_start 正确完成握手；
+- seqlock status 写到一半时，host snapshot 永不合法；
+- 瞬时 CRC/sequence 失败会 retry，deadline 内恢复时不终止；
+- result magic-last 半写内容永远不会被接受；
+- uint32 generation 在 0xFFFFFFFF -> 0 的 wrap-aware delta 正确；
+- POR 导致 boot_generation 从 1 重建时，旧 artifact 不会被接受；
+- build_id、boot_generation、session_generation、session_id、experiment_id 任一不匹配都拒绝 result；
 - result commit-last、ring CRC、result CRC；
 - generation/session/experiment mismatch reject；
 - incomplete COMPLETE reject；
