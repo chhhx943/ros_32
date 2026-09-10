@@ -17,8 +17,17 @@ static uint8_t g_still_started;
 static uint32_t g_last_feedback_ms;
 static uint8_t g_feedback_pending;
 static uint8_t g_response_pending;
+static int8_t g_left_measured_polarity;
+static int8_t g_right_measured_polarity;
+static uint16_t g_left_start_pwm;
+static uint16_t g_right_start_pwm;
+static uint16_t g_stage_pwm;
+static uint32_t g_last_pwm_step_ms;
+static uint8_t g_stage_response_detected;
 static int64_t g_stage_left_start_counts;
 static int64_t g_stage_right_start_counts;
+static Wheel_Calibration_StageDiagnostics_t g_stage_diagnostics;
+static Wheel_Calibration_TerminalSample_t g_terminal_sample;
 
 static uint16_t Wheel_Calibration_ReadU16LE(const uint8_t *data)
 {
@@ -70,6 +79,44 @@ static void Wheel_Calibration_SetTerminal(Wheel_Calibration_TransactionState_t s
     g_still_started = 0U;
 }
 
+static void Wheel_Calibration_LatchTerminalSample(
+    uint32_t now_ms,
+    Wheel_Calibration_TransactionState_t state,
+    Wheel_Calibration_ExitReason_t reason,
+    int64_t stage_delta_counts,
+    const EncoderSample_t *left_sample)
+{
+    g_terminal_sample = (Wheel_Calibration_TerminalSample_t){0};
+    g_terminal_sample.valid = (left_sample != 0) ? 1U : 0U;
+    g_terminal_sample.terminal_state = state;
+    g_terminal_sample.stage = g_stage;
+    g_terminal_sample.exit_reason = reason;
+    g_terminal_sample.timestamp_ms = now_ms;
+    if (left_sample != 0) {
+        g_terminal_sample.left_sample = *left_sample;
+    }
+    g_terminal_sample.stage_delta_counts = stage_delta_counts;
+    g_terminal_sample.stage_pwm_permille = g_stage_pwm;
+    g_terminal_sample.response_detected = g_stage_response_detected;
+}
+
+static void Wheel_Calibration_SetProcessTerminal(
+    uint32_t now_ms,
+    Wheel_Calibration_TransactionState_t state,
+    Wheel_Calibration_ExitReason_t reason,
+    int64_t stage_delta_counts,
+    const EncoderSample_t *left_sample)
+{
+    /* Capture before SetTerminal clears the active stage.  The caller's
+       sample is the only observation that belongs to this decision cycle. */
+    Wheel_Calibration_LatchTerminalSample(now_ms,
+                                          state,
+                                          reason,
+                                          stage_delta_counts,
+                                          left_sample);
+    Wheel_Calibration_SetTerminal(state, reason);
+}
+
 static uint8_t Wheel_Calibration_IsActive(void)
 {
     return (g_transaction_state == WHEEL_CALIBRATION_TX_PRECHECK) ||
@@ -119,6 +166,21 @@ static void Wheel_Calibration_StartStage(Wheel_Calibration_Stage_t stage,
     g_still_started = 0U;
     g_stage_left_start_counts = (left_sample != 0) ? left_sample->accumulated_counts : 0;
     g_stage_right_start_counts = (right_sample != 0) ? right_sample->accumulated_counts : 0;
+    g_stage_response_detected = 0U;
+    g_stage_pwm = 0U;
+    g_stage_diagnostics.stage = stage;
+    g_stage_diagnostics.left_start_counts = g_stage_left_start_counts;
+    g_stage_diagnostics.left_delta_counts = 0;
+    g_stage_diagnostics.stage_pwm_permille = 0U;
+    g_stage_diagnostics.left_sample_trusted = 0U;
+    g_stage_diagnostics.response_detected = 0U;
+    if ((stage == WHEEL_CALIBRATION_STAGE_LEFT_FORWARD) ||
+        (stage == WHEEL_CALIBRATION_STAGE_LEFT_REVERSE) ||
+        (stage == WHEEL_CALIBRATION_STAGE_RIGHT_FORWARD) ||
+        (stage == WHEEL_CALIBRATION_STAGE_RIGHT_REVERSE)) {
+        g_stage_pwm = WHEEL_CALIBRATION_PWM_INITIAL_PERMILLE;
+        g_last_pwm_step_ms = now_ms;
+    }
 }
 
 static int64_t Wheel_Calibration_StageDelta(const EncoderSample_t *sample, int64_t start_counts)
@@ -129,16 +191,69 @@ static int64_t Wheel_Calibration_StageDelta(const EncoderSample_t *sample, int64
     return sample->accumulated_counts - start_counts;
 }
 
-static void Wheel_Calibration_FinishSuccess(void)
+static uint8_t Wheel_Calibration_IsMotionStage(void)
 {
-    CalibrationData_t data = {1U, 1, -1, 100U, 100U, 1U, 0U};
+    return (g_stage == WHEEL_CALIBRATION_STAGE_LEFT_FORWARD) ||
+           (g_stage == WHEEL_CALIBRATION_STAGE_LEFT_REVERSE) ||
+           (g_stage == WHEEL_CALIBRATION_STAGE_RIGHT_FORWARD) ||
+           (g_stage == WHEEL_CALIBRATION_STAGE_RIGHT_REVERSE);
+}
+
+static void Wheel_Calibration_UpdatePwmRamp(uint32_t now_ms,
+                                            int64_t delta,
+                                            int8_t expected_sign)
+{
+    int64_t response_delta = delta;
+
+    if (expected_sign == 0) {
+        response_delta = (delta < 0) ? -delta : delta;
+    } else if (expected_sign < 0) {
+        response_delta = -delta;
+    }
+
+    if (Wheel_Calibration_IsMotionStage() == 0U) {
+        return;
+    }
+    if (response_delta >= WHEEL_CALIBRATION_START_RESPONSE_COUNTS) {
+        g_stage_response_detected = 1U;
+    }
+    if ((g_stage_response_detected == 0U) &&
+        ((uint32_t)(now_ms - g_last_pwm_step_ms) >= WHEEL_CALIBRATION_PWM_STEP_HOLD_MS) &&
+        (g_stage_pwm < WHEEL_CALIBRATION_PWM_MAX_PERMILLE)) {
+        g_stage_pwm = (uint16_t)(g_stage_pwm + WHEEL_CALIBRATION_PWM_STEP_PERMILLE);
+        if (g_stage_pwm > WHEEL_CALIBRATION_PWM_MAX_PERMILLE) {
+            g_stage_pwm = WHEEL_CALIBRATION_PWM_MAX_PERMILLE;
+        }
+        g_last_pwm_step_ms = now_ms;
+    }
+}
+
+static void Wheel_Calibration_FinishSuccess(uint32_t now_ms,
+                                            int64_t stage_delta_counts,
+                                            const EncoderSample_t *left_sample)
+{
+    CalibrationData_t data = {1U, g_left_measured_polarity, g_right_measured_polarity,
+                              g_left_start_pwm, g_right_start_pwm, 1U, 0U};
+    WheelCalibrationParameters_t parameters = {500U, 4U, 28000U, 33250U};
+    Wheel_Calibration_SetParameters(&parameters);
 
     if ((Wheel_Calibration_SetPending(&data) != 0U) &&
         (Wheel_Calibration_CommitPending() != 0U)) {
+        Wheel_Calibration_LatchTerminalSample(now_ms,
+                                              WHEEL_CALIBRATION_TX_SUCCEEDED,
+                                              WHEEL_CALIBRATION_EXIT_SUCCESS,
+                                              stage_delta_counts,
+                                              left_sample);
         Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_SUCCEEDED,
                                       WHEEL_CALIBRATION_EXIT_SUCCESS);
     } else {
         Wheel_Calibration_DiscardPending();
+        Wheel_Calibration_LatchTerminalSample(
+            now_ms,
+            WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
+            WHEEL_CALIBRATION_EXIT_FORWARD_INSUFFICIENT_MOTION,
+            stage_delta_counts,
+            left_sample);
         Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
                                       WHEEL_CALIBRATION_EXIT_FORWARD_INSUFFICIENT_MOTION);
     }
@@ -204,6 +319,15 @@ void Wheel_Calibration_Service_Init(void)
     g_last_feedback_ms = 0U;
     g_feedback_pending = 0U;
     g_response_pending = 0U;
+    g_left_measured_polarity = 0;
+    g_right_measured_polarity = 0;
+    g_left_start_pwm = 0U;
+    g_right_start_pwm = 0U;
+    g_stage_pwm = 0U;
+    g_last_pwm_step_ms = 0U;
+    g_stage_response_detected = 0U;
+    g_stage_diagnostics = (Wheel_Calibration_StageDiagnostics_t){0};
+    g_terminal_sample = (Wheel_Calibration_TerminalSample_t){0};
 }
 
 void Wheel_Calibration_Service_OnRequest(const Wheel_Calibration_ServiceRequest_t *request,
@@ -276,6 +400,7 @@ void Wheel_Calibration_Service_OnRequest(const Wheel_Calibration_ServiceRequest_
         g_active_request = *request;
         g_last_start_seq = request->service_seq;
         g_has_last_start_seq = 1U;
+        g_terminal_sample.valid = 0U;
         g_has_active_request = 1U;
         g_transaction_start_ms = now_ms;
         g_stage_start_ms = now_ms;
@@ -323,31 +448,46 @@ void Wheel_Calibration_Service_Process(uint32_t now_ms,
     }
 
     if (estop_active != 0U) {
-        Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_ABORTED,
-                                      WHEEL_CALIBRATION_EXIT_SAFETY_ESTOP);
+        Wheel_Calibration_SetProcessTerminal(now_ms,
+                                             WHEEL_CALIBRATION_TX_ABORTED,
+                                             WHEEL_CALIBRATION_EXIT_SAFETY_ESTOP,
+                                             0,
+                                             left_sample);
         return;
     }
     if (fault_active != 0U) {
-        Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_ABORTED,
-                                      WHEEL_CALIBRATION_EXIT_SAFETY_FAULT);
+        Wheel_Calibration_SetProcessTerminal(now_ms,
+                                             WHEEL_CALIBRATION_TX_ABORTED,
+                                             WHEEL_CALIBRATION_EXIT_SAFETY_FAULT,
+                                             0,
+                                             left_sample);
         return;
     }
     if ((command_fresh == 0U) || (Wheel_Calibration_IsZeroStop(command) == 0U)) {
-        Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_ABORTED,
-                                      WHEEL_CALIBRATION_EXIT_COMMUNICATION_TIMEOUT);
+        Wheel_Calibration_SetProcessTerminal(now_ms,
+                                             WHEEL_CALIBRATION_TX_ABORTED,
+                                             WHEEL_CALIBRATION_EXIT_COMMUNICATION_TIMEOUT,
+                                             0,
+                                             left_sample);
         return;
     }
 
     if ((uint32_t)(now_ms - g_transaction_start_ms) >= WHEEL_CALIBRATION_TOTAL_TIMEOUT_MS) {
-        Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_ABORTED,
-                                      WHEEL_CALIBRATION_EXIT_TOTAL_TIMEOUT);
+        Wheel_Calibration_SetProcessTerminal(now_ms,
+                                             WHEEL_CALIBRATION_TX_ABORTED,
+                                             WHEEL_CALIBRATION_EXIT_TOTAL_TIMEOUT,
+                                             0,
+                                             left_sample);
         return;
     }
 
     if (g_transaction_state == WHEEL_CALIBRATION_TX_PRECHECK) {
         if ((uint32_t)(now_ms - g_transaction_start_ms) >= WHEEL_CALIBRATION_PRECHECK_TIMEOUT_MS) {
-            Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_ABORTED,
-                                          WHEEL_CALIBRATION_EXIT_PRECHECK_TIMEOUT);
+            Wheel_Calibration_SetProcessTerminal(now_ms,
+                                                 WHEEL_CALIBRATION_TX_ABORTED,
+                                                 WHEEL_CALIBRATION_EXIT_PRECHECK_TIMEOUT,
+                                                 0,
+                                                 left_sample);
             return;
         }
         if (Wheel_Calibration_StillHeld(now_ms, left_sample, right_sample) != 0U) {
@@ -362,16 +502,29 @@ void Wheel_Calibration_Service_Process(uint32_t now_ms,
 
     switch (g_stage) {
     case WHEEL_CALIBRATION_STAGE_LEFT_FORWARD:
+        delta = Wheel_Calibration_StageDelta(left_sample, g_stage_left_start_counts);
+        Wheel_Calibration_UpdatePwmRamp(now_ms, delta, 0);
+        g_stage_diagnostics.left_delta_counts = delta;
+        g_stage_diagnostics.stage_pwm_permille = g_stage_pwm;
+        g_stage_diagnostics.left_sample_trusted =
+            (left_sample != 0) ? left_sample->trusted : 0U;
+        g_stage_diagnostics.response_detected = g_stage_response_detected;
         if ((uint32_t)(now_ms - g_stage_start_ms) < WHEEL_CALIBRATION_STAGE_MS) {
             return;
         }
-        delta = Wheel_Calibration_StageDelta(left_sample, g_stage_left_start_counts);
         if ((left_sample == 0) || (left_sample->trusted == 0U) ||
-            (delta < WHEEL_CALIBRATION_MIN_RESPONSE_COUNTS)) {
-            Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
-                                          WHEEL_CALIBRATION_EXIT_FORWARD_INSUFFICIENT_MOTION);
+            (((delta < 0) ? -delta : delta) < WHEEL_CALIBRATION_MIN_RESPONSE_COUNTS) ||
+            (g_stage_response_detected == 0U)) {
+            Wheel_Calibration_SetProcessTerminal(
+                now_ms,
+                WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
+                WHEEL_CALIBRATION_EXIT_FORWARD_INSUFFICIENT_MOTION,
+                delta,
+                left_sample);
             return;
         }
+        g_left_measured_polarity = (delta >= 0) ? 1 : -1;
+        g_left_start_pwm = g_stage_pwm;
         Wheel_Calibration_StartStage(WHEEL_CALIBRATION_STAGE_LEFT_SETTLE,
                                      now_ms,
                                      left_sample,
@@ -380,8 +533,11 @@ void Wheel_Calibration_Service_Process(uint32_t now_ms,
 
     case WHEEL_CALIBRATION_STAGE_LEFT_SETTLE:
         if ((uint32_t)(now_ms - g_stage_start_ms) >= WHEEL_CALIBRATION_SETTLE_TIMEOUT_MS) {
-            Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
-                                          WHEEL_CALIBRATION_EXIT_SETTLE_TIMEOUT);
+            Wheel_Calibration_SetProcessTerminal(now_ms,
+                                                 WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
+                                                 WHEEL_CALIBRATION_EXIT_SETTLE_TIMEOUT,
+                                                 0,
+                                                 left_sample);
         } else if (Wheel_Calibration_StillHeld(now_ms, left_sample, right_sample) != 0U) {
             Wheel_Calibration_StartStage(WHEEL_CALIBRATION_STAGE_LEFT_REVERSE,
                                          now_ms,
@@ -391,14 +547,21 @@ void Wheel_Calibration_Service_Process(uint32_t now_ms,
         return;
 
     case WHEEL_CALIBRATION_STAGE_LEFT_REVERSE:
+        delta = Wheel_Calibration_StageDelta(left_sample, g_stage_left_start_counts);
+        Wheel_Calibration_UpdatePwmRamp(now_ms, delta, (int8_t)-g_left_measured_polarity);
         if ((uint32_t)(now_ms - g_stage_start_ms) < WHEEL_CALIBRATION_STAGE_MS) {
             return;
         }
-        delta = Wheel_Calibration_StageDelta(left_sample, g_stage_left_start_counts);
         if ((left_sample == 0) || (left_sample->trusted == 0U) ||
-            (delta > -WHEEL_CALIBRATION_MIN_RESPONSE_COUNTS)) {
-            Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
-                                          WHEEL_CALIBRATION_EXIT_REVERSE_INSUFFICIENT_MOTION);
+            ((delta * (int64_t)g_left_measured_polarity) >
+             -WHEEL_CALIBRATION_MIN_RESPONSE_COUNTS) ||
+            (g_stage_response_detected == 0U)) {
+            Wheel_Calibration_SetProcessTerminal(
+                now_ms,
+                WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
+                WHEEL_CALIBRATION_EXIT_REVERSE_INSUFFICIENT_MOTION,
+                delta,
+                left_sample);
             return;
         }
         Wheel_Calibration_StartStage(WHEEL_CALIBRATION_STAGE_RIGHT_FORWARD,
@@ -408,16 +571,24 @@ void Wheel_Calibration_Service_Process(uint32_t now_ms,
         return;
 
     case WHEEL_CALIBRATION_STAGE_RIGHT_FORWARD:
+        delta = Wheel_Calibration_StageDelta(right_sample, g_stage_right_start_counts);
+        Wheel_Calibration_UpdatePwmRamp(now_ms, delta, 0);
         if ((uint32_t)(now_ms - g_stage_start_ms) < WHEEL_CALIBRATION_STAGE_MS) {
             return;
         }
-        delta = Wheel_Calibration_StageDelta(right_sample, g_stage_right_start_counts);
         if ((right_sample == 0) || (right_sample->trusted == 0U) ||
-            (delta < WHEEL_CALIBRATION_MIN_RESPONSE_COUNTS)) {
-            Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
-                                          WHEEL_CALIBRATION_EXIT_FORWARD_INSUFFICIENT_MOTION);
+            (((delta < 0) ? -delta : delta) < WHEEL_CALIBRATION_MIN_RESPONSE_COUNTS) ||
+            (g_stage_response_detected == 0U)) {
+            Wheel_Calibration_SetProcessTerminal(
+                now_ms,
+                WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
+                WHEEL_CALIBRATION_EXIT_FORWARD_INSUFFICIENT_MOTION,
+                delta,
+                left_sample);
             return;
         }
+        g_right_measured_polarity = (delta >= 0) ? 1 : -1;
+        g_right_start_pwm = g_stage_pwm;
         Wheel_Calibration_StartStage(WHEEL_CALIBRATION_STAGE_RIGHT_SETTLE,
                                      now_ms,
                                      left_sample,
@@ -426,8 +597,11 @@ void Wheel_Calibration_Service_Process(uint32_t now_ms,
 
     case WHEEL_CALIBRATION_STAGE_RIGHT_SETTLE:
         if ((uint32_t)(now_ms - g_stage_start_ms) >= WHEEL_CALIBRATION_SETTLE_TIMEOUT_MS) {
-            Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
-                                          WHEEL_CALIBRATION_EXIT_SETTLE_TIMEOUT);
+            Wheel_Calibration_SetProcessTerminal(now_ms,
+                                                 WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
+                                                 WHEEL_CALIBRATION_EXIT_SETTLE_TIMEOUT,
+                                                 0,
+                                                 left_sample);
         } else if (Wheel_Calibration_StillHeld(now_ms, left_sample, right_sample) != 0U) {
             Wheel_Calibration_StartStage(WHEEL_CALIBRATION_STAGE_RIGHT_REVERSE,
                                          now_ms,
@@ -437,23 +611,33 @@ void Wheel_Calibration_Service_Process(uint32_t now_ms,
         return;
 
     case WHEEL_CALIBRATION_STAGE_RIGHT_REVERSE:
+        delta = Wheel_Calibration_StageDelta(right_sample, g_stage_right_start_counts);
+        Wheel_Calibration_UpdatePwmRamp(now_ms, delta, (int8_t)-g_right_measured_polarity);
         if ((uint32_t)(now_ms - g_stage_start_ms) < WHEEL_CALIBRATION_STAGE_MS) {
             return;
         }
-        delta = Wheel_Calibration_StageDelta(right_sample, g_stage_right_start_counts);
         if ((right_sample == 0) || (right_sample->trusted == 0U) ||
-            (delta > -WHEEL_CALIBRATION_MIN_RESPONSE_COUNTS)) {
-            Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
-                                          WHEEL_CALIBRATION_EXIT_REVERSE_INSUFFICIENT_MOTION);
+            ((delta * (int64_t)g_right_measured_polarity) >
+             -WHEEL_CALIBRATION_MIN_RESPONSE_COUNTS) ||
+            (g_stage_response_detected == 0U)) {
+            Wheel_Calibration_SetProcessTerminal(
+                now_ms,
+                WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
+                WHEEL_CALIBRATION_EXIT_REVERSE_INSUFFICIENT_MOTION,
+                delta,
+                left_sample);
             return;
         }
-        g_stage = WHEEL_CALIBRATION_STAGE_VALIDATE;
-        Wheel_Calibration_FinishSuccess();
+        Wheel_Calibration_FinishSuccess(now_ms, delta, left_sample);
         return;
 
     default:
-        Wheel_Calibration_SetTerminal(WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
-                                      WHEEL_CALIBRATION_EXIT_FORWARD_INSUFFICIENT_MOTION);
+        Wheel_Calibration_SetProcessTerminal(
+            now_ms,
+            WHEEL_CALIBRATION_TX_FAILED_VALIDATION,
+            WHEEL_CALIBRATION_EXIT_FORWARD_INSUFFICIENT_MOTION,
+            0,
+            left_sample);
         return;
     }
 }
@@ -471,15 +655,31 @@ uint8_t Wheel_Calibration_Service_GetRecommendation(Wheel_Calibration_Recommenda
     }
 
     if (g_stage == WHEEL_CALIBRATION_STAGE_LEFT_FORWARD) {
-        recommendation->left_pwm = WHEEL_CALIBRATION_PWM_PERMILLE;
+        recommendation->left_pwm = (int16_t)g_stage_pwm;
     } else if (g_stage == WHEEL_CALIBRATION_STAGE_LEFT_REVERSE) {
-        recommendation->left_pwm = -WHEEL_CALIBRATION_PWM_PERMILLE;
+        recommendation->left_pwm = -(int16_t)g_stage_pwm;
     } else if (g_stage == WHEEL_CALIBRATION_STAGE_RIGHT_FORWARD) {
-        recommendation->right_pwm = WHEEL_CALIBRATION_PWM_PERMILLE;
+        recommendation->right_pwm = (int16_t)g_stage_pwm;
     } else if (g_stage == WHEEL_CALIBRATION_STAGE_RIGHT_REVERSE) {
-        recommendation->right_pwm = -WHEEL_CALIBRATION_PWM_PERMILLE;
+        recommendation->right_pwm = -(int16_t)g_stage_pwm;
     }
     return 1U;
+}
+
+void Wheel_Calibration_Service_GetStageDiagnostics(
+    Wheel_Calibration_StageDiagnostics_t *diagnostics)
+{
+    if (diagnostics != 0) {
+        *diagnostics = g_stage_diagnostics;
+    }
+}
+
+void Wheel_Calibration_Service_GetTerminalSample(
+    Wheel_Calibration_TerminalSample_t *sample)
+{
+    if (sample != 0) {
+        *sample = g_terminal_sample;
+    }
 }
 
 Wheel_Calibration_TransactionState_t Wheel_Calibration_Service_GetState(void)
@@ -561,4 +761,25 @@ uint8_t Wheel_Calibration_Service_HasResponsePending(void)
 uint8_t Wheel_Calibration_Service_IsActive(void)
 {
     return Wheel_Calibration_IsActive();
+}
+
+uint8_t Wheel_Calibration_Service_ClearFailedValidation(void)
+{
+    if (g_transaction_state != WHEEL_CALIBRATION_TX_FAILED_VALIDATION) {
+        return 0U;
+    }
+
+    /* A calibration-validation fault is recoverable only after the safety
+       manager has accepted a zero STOP + RESET command.  Keep the last exit
+       reason for diagnostics, but leave no failed transaction state for the
+       next Safety_Manager_Process() pass to re-latch. */
+    g_transaction_state = WHEEL_CALIBRATION_TX_NONE;
+    g_stage = WHEEL_CALIBRATION_STAGE_NONE;
+    g_has_active_request = 0U;
+    g_still_start_ms = 0U;
+    g_still_started = 0U;
+    g_stage_response_detected = 0U;
+    g_stage_pwm = 0U;
+    g_feedback_pending = 1U;
+    return 1U;
 }

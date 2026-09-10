@@ -1,0 +1,104 @@
+{
+  "lifecycle": [
+    {
+      "event": "build",
+      "timestamp": "2026-09-03T07:15:26.622087+00:00"
+    },
+    {
+      "event": "programmer_exit",
+      "timestamp": "2026-09-03T07:15:27.160706+00:00",
+      "returncode": 0
+    },
+    {
+      "event": "gdb_server_start",
+      "timestamp": "2026-09-03T07:15:27.160706+00:00",
+      "argv": [
+        "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STLink-gdb-server\\bin\\ST-LINK_gdbserver.exe",
+        "--swd",
+        "--attach",
+        "--port-number",
+        "61234",
+        "--frequency",
+        "4000",
+        "--stm32cubeprogrammer-path",
+        "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin",
+        "--serial-number",
+        "3E3703013212354D434B4E00"
+      ]
+    },
+    {
+      "event": "gdb_attach",
+      "timestamp": "2026-09-03T07:15:29.451220+00:00"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+        "-c",
+        "port=SWD sn=3E3703013212354D434B4E00",
+        "freq=4000",
+        "-w",
+        "D:\\STM32cubemx\\Project\\ros\\build\\LocalSessionSmoke\\ros.elf",
+        "-v",
+        "-rst",
+        "-run"
+      ],
+      "returncode": 0,
+      "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK SN  : 3E3703013212354D434B4E00\nST-LINK FW  : V2J46S7\nBoard       : --\nVoltage     : 3.20V\nSWD freq    : 4000 KHz\nConnect mode: Normal\nReset mode  : Software reset\nDevice ID   : 0x413\nRevision ID : --\nDevice name : STM32F405xx/F407xx/F415xx/F417xx\nFlash size  : 512 KBytes\nDevice type : MCU\nDevice CPU  : Cortex-M4\nBL Version  : 0x91\n\n\n\nOpening and parsing file: ros.elf\n\n\nMemory Programming ...\n  File          : ros.elf\n  Size          : 7.95 KB \n  Address       : 0x08000000\n\n\nErasing memory corresponding to segment 0:\nErasing internal memory sector 0\nDownload in Progress:\n北北北北北北北北北北北北北北北北北北北北北北北北北 0%\n圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%\n\nFile download complete\nTime elapsed during download operation: 00:00:00.403\n\n\n\nVerifying...\n\n\nRead progress:\n北北北北北北北北北北北北北北北北北北北北北北北北北 50%\n圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%\n\nTime elapsed during verifying operation: 00:00:00.050\n\n\nDownload verified successfully \n\n\n\nMCU Reset\n\nSoftware reset is performed\nCore run\n",
+      "stderr": "",
+      "started_at": "2026-09-03T07:15:26.622087+00:00",
+      "exited_at": "2026-09-03T07:15:27.160706+00:00",
+      "timeout_s": 60.0,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STLink-gdb-server\\bin\\ST-LINK_gdbserver.exe",
+        "--help"
+      ],
+      "returncode": 0,
+      "stdout": "\nUSAGE: \n\n   D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STLink-gdb-server\\bin\\ST-LINK_gdbser\n                                        ver.exe  [--semihost-console-port\n                                        <port number>] [--semihosting\n                                        <semihost level>] [--external-init]\n                                        [--pend-halt-timeout <Pending halt\n                                        timeout>] [--halt] [-c <config\n                                        file>] [-e] [-f <log file>] [-l\n                                        <log level>] [-p <port number>]\n                                        [-v] [-r <refresh delay>]\n                                        [--incremental] [-s] [-d] [-z <port\n                                        number>] [-a <cpu clock>] [-b <SWO\n                                        CLOCKDIV>] [-k] [-q] [-i <ST-LINK\n                                        S/N>] [-m <apID>] [-g] [-t]\n                                        [--erase-all] [--memory-map <device\n                                        id>] [--ext-memory-loaders] [-ei\n                                        <file_path>] ...  [-el <file_path>]\n                                        ...  [-cp <path>] [--temp-path\n                                        <path>] [--preserve-temps]\n                                        [--frequency <max freq kHz>]\n                                        [--licenses] [--] [--version] [-h]\n\n\nWhere: \n\n   --semihost-console-port <port number>\n     Port number for semihost console clients\n\n   --semihosting <semihost level>\n     Select semihosting mode\n\n   --external-init\n     Run Init() from external loader after reset\n\n   --pend-halt-timeout <Pending halt timeout>\n     Maximum time to wait for core to halt\n\n   --halt\n     Halt all cores during reset\n\n   -c <config file>,  --config-file <config file>\n     Read the config params from config file\n\n   -e,  --persistent\n     Enable persistent mode\n\n   -f <log file>,  --log-file <log file>\n     Path to log file\n\n   -l <log level>,  --log-level <log level>\n     Logging level between 0 to 31\n\n   -p <port number>,  --port-number <port number>\n     TCP port number for GDB client\n\n   -v,  --verbose\n     Turn ON verbose mode\n\n   -r <refresh delay>,  --refresh-delay <refresh delay>\n     Minimum delay in seconds for hardware status refresh\n\n   --incremental\n     Turn ON incremental flash programming\n\n   -s,  --verify\n     Turn ON flash download verify\n\n   -d,  --swd\n     Enable SWD debug mode\t[use for SWV]\n\n   -z <port number>,  --swo-port <port number>\n     SWO output port number\t[use for SWV]\n\n   -a <cpu clock>,  --cpu-clock <cpu clock>\n     CPU clock speed in Hz\t[use for SWV]\n\n   -b <SWO CLOCKDIV>,  --swo-clock-div <SWO CLOCKDIV>\n     Divide CPU clock by SWO CLOCKDIV\n\n   -k,  --initialize-reset\n     Initialize the device under reset condition\n\n   -q,  --debuggers\n     List serial number for connected ST-LINK devices\n\n   -i <ST-LINK S/N>,  --serial-number <ST-LINK S/N>\n     ST-LINK serial number\n\n   -m <apID>,  --apid <apID>\n     Select core on multi-core devices\n\n   -g,  --attach\n     Attach to running target\n\n   -t,  --shared\n     Shareable ST-LINK\t[using ST-LINK server]\n\n   --erase-all\n     Erase all memories\n\n   --memory-map <device id>\n     Show memory map for device id\n\n   --ext-memory-loaders\n     List of available external memory-loaders\n\n   -ei <file_path>,  --extload_init <file_path>  (accepted multiple times)\n     Custom external memory-loader with initialization after reset\n\n   -el <file_path>,  --extload <file_path>  (accepted multiple times)\n     Custom external memory-loader\n\n   -cp <path>,  --stm32cubeprogrammer-path <path>\n     Path to STM32CubeProgrammer installation\n\n   --temp-path <path>\n     Temporary files for starting a debug session are stored in the\n     provided path\n\n   --preserve-temps\n     Will not remove used temporary files\n\n   --frequency <max freq kHz>\n     Select com frequency in kHz\n\n   --licenses\n     List of used tools and licenses\n\n   --,  --ignore-rest\n     Ignores the rest of the labeled arguments following this flag\n\n   --version\n     Displays version information and exits\n\n   -h,  --help\n     Displays usage information and exits\n\n\n   ST-LINK GDB server\n\n",
+      "stderr": "",
+      "started_at": "2026-09-03T07:15:27.160706+00:00",
+      "exited_at": "2026-09-03T07:15:27.167691+00:00",
+      "timeout_s": 10.0,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+        "-c",
+        "port=SWD sn=3E3703013212354D434B4E00",
+        "freq=4000"
+      ],
+      "returncode": 0,
+      "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK SN  : 3E3703013212354D434B4E00\nST-LINK FW  : V2J46S7\nBoard       : --\nVoltage     : 3.20V\nSWD freq    : 4000 KHz\nConnect mode: Normal\nReset mode  : Software reset\nDevice ID   : 0x413\nRevision ID : --\nDevice name : STM32F405xx/F407xx/F415xx/F417xx\nFlash size  : 512 KBytes\nDevice type : MCU\nDevice CPU  : Cortex-M4\nBL Version  : 0x91\n\n",
+      "stderr": "",
+      "started_at": "2026-09-03T07:15:30.919286+00:00",
+      "exited_at": "2026-09-03T07:15:30.983344+00:00",
+      "timeout_s": 10.0,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+        "-c",
+        "port=SWD sn=3E3703013212354D434B4E00",
+        "freq=4000",
+        "-w",
+        "D:\\STM32cubemx\\Project\\ros\\build\\Debug\\ros.elf",
+        "-v",
+        "-rst",
+        "-run"
+      ],
+      "returncode": 0,
+      "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK SN  : 3E3703013212354D434B4E00\nST-LINK FW  : V2J46S7\nBoard       : --\nVoltage     : 3.19V\nSWD freq    : 4000 KHz\nConnect mode: Normal\nReset mode  : Software reset\nDevice ID   : 0x413\nRevision ID : --\nDevice name : STM32F405xx/F407xx/F415xx/F417xx\nFlash size  : 512 KBytes\nDevice type : MCU\nDevice CPU  : Cortex-M4\nBL Version  : 0x91\n\n\n\nOpening and parsing file: ros.elf\n\n\nMemory Programming ...\n  File          : ros.elf\n  Size          : 40.28 KB \n  Address       : 0x08000000\n\n\nErasing memory corresponding to segment 0:\nErasing internal memory sectors [0 2]\nDownload in Progress:\n北北北北北北北北北北北北北北北北北北北北北北北北北 0%\n圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%\n\nFile download complete\nTime elapsed during download operation: 00:00:01.214\n\n\n\nVerifying...\n\n\nRead progress:\n北北北北北北北北北北北北北北北北北北北北北北北北北 50%\n圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%\n\nTime elapsed during verifying operation: 00:00:00.258\n\n\nDownload verified successfully \n\n\n\nMCU Reset\n\nSoftware reset is performed\nCore run\n",
+      "stderr": "",
+      "started_at": "2026-09-03T07:15:30.983344+00:00",
+      "exited_at": "2026-09-03T07:15:32.537806+00:00",
+      "timeout_s": 60.0,
+      "timed_out": false
+    }
+  ]
+}

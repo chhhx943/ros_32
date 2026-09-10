@@ -1,0 +1,8 @@
+[2026-09-02T09:51:40.601334+00:00] D:\stm32cubeclt\STM32CubeCLT_1.19.0\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe -c port=SWD sn=3E3703013212354D434B4E00 freq=4000 -w D:\STM32cubemx\Project\ros\build\LocalSessionSmoke\ros.elf -v -rst -run
+
+
+[2026-09-02T09:51:44.859409+00:00] D:\stm32cubeclt\STM32CubeCLT_1.19.0\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe -c port=SWD sn=3E3703013212354D434B4E00 freq=4000
+
+
+[2026-09-02T09:51:44.932076+00:00] D:\stm32cubeclt\STM32CubeCLT_1.19.0\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe -c port=SWD sn=3E3703013212354D434B4E00 freq=4000 -w D:\STM32cubemx\Project\ros\build\Debug\ros.elf -v -rst -run
+

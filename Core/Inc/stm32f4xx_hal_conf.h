@@ -55,7 +55,8 @@
 /* #define HAL_HASH_MODULE_ENABLED */
 /* #define HAL_I2C_MODULE_ENABLED */
 /* #define HAL_I2S_MODULE_ENABLED */
-/* #define HAL_IWDG_MODULE_ENABLED */
+/* IWDG is driven through the STM32 register block in BSP/watchdog.c because
+   this CubeMX package does not ship the optional HAL IWDG driver. */
 /* #define HAL_LTDC_MODULE_ENABLED */
 /* #define HAL_RNG_MODULE_ENABLED */
 /* #define HAL_RTC_MODULE_ENABLED */

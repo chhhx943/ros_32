@@ -193,6 +193,37 @@ class ChassisFeedbackHostTest(unittest.TestCase):
             """
         )
 
+    def test_safe_stop_still_samples_and_publishes_read_only_encoder_feedback(self):
+        self.compile_and_run(
+            COMMON_STUBS
+            + r"""
+            int main(void)
+            {
+                Chassis_ControlInit();
+                left_sample.velocity_mmps = 0;
+                left_sample.accumulated_counts = 56000;
+                left_sample.trusted = 1U;
+                right_sample.velocity_mmps = 0;
+                right_sample.accumulated_counts = 28000;
+                right_sample.trusted = 1U;
+
+                /* No drive command: startup remains calibration-required /
+                   safe-stop, but encoder feedback must still be observable. */
+                Chassis_ControlProcess(0U);
+                Chassis_ControlProcess(10U);
+
+                if (feedback_set_count != 1) return 1;
+                if (last_feedback.rear_left_position_valid != 1U) return 2;
+                if (last_feedback.rear_right_position_valid != 1U) return 3;
+                if (last_feedback.rear_left_position_mrad < 6280 ||
+                    last_feedback.rear_left_position_mrad > 6286) return 4;
+                if (last_feedback.rear_right_position_mrad < 3140 ||
+                    last_feedback.rear_right_position_mrad > 3146) return 5;
+                return 0;
+            }
+            """
+        )
+
     def test_untrusted_sample_is_visible_in_feedback_flags_before_coast(self):
         self.compile_and_run(
             COMMON_STUBS
@@ -240,7 +271,7 @@ class ChassisFeedbackHostTest(unittest.TestCase):
                 g_physical_estop_pin_level = 0U;
                 Chassis_ControlProcess(320U);
 
-                if (feedback_set_count != 2) return 1;
+                if (feedback_set_count < 2) return 1;
                 if ((last_feedback.status_flags & BSP_BXCAN_STATUS_ESTOP_ACTIVE) == 0U) return 2;
                 return 0;
             }

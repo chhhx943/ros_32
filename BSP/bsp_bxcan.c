@@ -1,6 +1,7 @@
 #include "bsp_bxcan.h"
 #include "wheel_calibration_service.h"
 #include "pid_tuning.h"
+#include "autotune_safe.h"
 
 #define BXCAN_DLC_V1 8U
 #define BXCAN_STANDARD_FRAME 0U
@@ -37,6 +38,7 @@ static uint8_t g_safe_stop_active;
 static uint8_t g_fault_latched;
 static uint16_t g_fault_code;
 static uint16_t g_applied_command_seq;
+static uint8_t g_applied_command_seq_valid;
 static uint16_t g_feedback_seq;
 static uint8_t g_heartbeat_counter;
 static uint32_t g_last_feedback_ms;
@@ -49,6 +51,12 @@ static BSP_BXCAN_Feedback_t g_tx_feedback;
 static BSP_BXCAN_Diagnostics_t g_diagnostics;
 static BSP_BXCAN_Diagnostics_t g_tx_diagnostics;
 static uint32_t g_tx_device_time_ms;
+#ifdef AUTOTUNE_SAFE_PROFILE
+static uint8_t g_autotune_tx_active;
+static uint8_t g_autotune_tx_index;
+static uint8_t g_autotune_tx_snapshot_seq;
+static uint32_t g_autotune_last_feedback_ms;
+#endif
 #ifndef BSP_BXCAN_HOST_TEST
 static uint32_t g_last_hal_can_error;
 #endif
@@ -61,6 +69,7 @@ static void BXCAN_WriteI32LE(uint8_t *data, int32_t value);
 static uint8_t BXCAN_AbsI16InRange(int16_t value, int16_t limit);
 static uint8_t BXCAN_FrameHeaderValid(uint8_t dlc, uint8_t ide, uint8_t rtr, const uint8_t data[8]);
 static uint8_t BXCAN_ModeCanApply(uint8_t mode_flags);
+static uint8_t BXCAN_CommandSequenceIsFresh(uint16_t candidate);
 static uint8_t BXCAN_TimeElapsed(uint32_t now_ms, uint32_t then_ms, uint32_t limit_ms);
 static uint16_t BXCAN_SaturatingIncrement(uint16_t value);
 static void BXCAN_UpdateCommandAge(uint32_t now_ms);
@@ -105,25 +114,48 @@ static const uint16_t g_feedback_ids[8] = {
     BSP_BXCAN_ID_FB_CONTROL_OUTPUT,
 };
 
+#ifdef AUTOTUNE_SAFE_PROFILE
+static const uint16_t g_autotune_feedback_ids[11] = {
+    AUTOTUNE_SAFE_ID_FB_IDENTITY,
+    AUTOTUNE_SAFE_ID_FB_STATE,
+    AUTOTUNE_SAFE_ID_FB_LIMITS,
+    AUTOTUNE_SAFE_ID_FB_WHEEL,
+    AUTOTUNE_SAFE_ID_FB_WHEEL,
+    AUTOTUNE_SAFE_ID_FB_PID_PI,
+    AUTOTUNE_SAFE_ID_FB_PID_DO,
+    AUTOTUNE_SAFE_ID_FB_PID_PI,
+    AUTOTUNE_SAFE_ID_FB_PID_DO,
+    AUTOTUNE_SAFE_ID_FB_SAFETY,
+    AUTOTUNE_SAFE_ID_FB_COUNTERS,
+};
+#endif
+
 #ifndef BSP_BXCAN_HOST_TEST
 void CAN1_Filter_Config(void)
 {
-    CAN_FilterTypeDef sFilter = {0};
+    uint32_t fmr;
 
-    sFilter.FilterBank = 0;
-    sFilter.FilterMode = CAN_FILTERMODE_IDMASK;
-    sFilter.FilterScale = CAN_FILTERSCALE_32BIT;
-    sFilter.FilterFIFOAssignment = CAN_RX_FIFO0;
-    sFilter.FilterIdHigh = (BSP_BXCAN_ID_CMD_STEERING << 5);
-    sFilter.FilterIdLow = 0x0000;
-    sFilter.FilterMaskIdHigh = (0x7F8U << 5);
-    sFilter.FilterMaskIdLow = 0x0000;
-    sFilter.FilterActivation = CAN_FILTER_ENABLE;
-    sFilter.SlaveStartFilterBank = 14;
+    /* CAN1/CAN2 share the filter block on STM32F407.  Configure bank 0
+       directly while the filter block is in initialization mode.  This
+       avoids the HAL filter-state path that can leave FINIT asserted on this
+       target and prevent the application RX path from becoming usable. */
+    __HAL_RCC_CAN2_CLK_ENABLE();
+    fmr = CAN1->FMR;
+    fmr &= ~CAN_FMR_CAN2SB;
+    fmr |= (14U << CAN_FMR_CAN2SB_Pos) | CAN_FMR_FINIT;
+    CAN1->FMR = fmr;
 
-    if (HAL_CAN_ConfigFilter(&hcan1, &sFilter) != HAL_OK) {
-        Error_Handler();
-    }
+    CAN1->FA1R &= ~CAN_FA1R_FACT0;
+    CAN1->FS1R |= CAN_FS1R_FSC0;
+    CAN1->FM1R &= ~CAN_FM1R_FBM0;
+    CAN1->FFA1R &= ~CAN_FFA1R_FFA0;
+    /* Temporary A/B test: accept every standard/extended frame.  Once RX0
+       is confirmed, restore the protocol mask for 0x120..0x127. */
+    CAN1->sFilterRegister[0].FR1 = 0x00000000U;
+    CAN1->sFilterRegister[0].FR2 = 0x00000000U;
+    CAN1->FA1R |= CAN_FA1R_FACT0;
+    CAN1->FMR = fmr & ~CAN_FMR_FINIT;
+    __DSB();
 }
 
 void BSP_BXCAN_Init(void)
@@ -131,11 +163,17 @@ void BSP_BXCAN_Init(void)
     BSP_BXCAN_ResetForTest();
     PID_Tuning_Init();
     Wheel_Calibration_Service_Init();
-    CAN1_Filter_Config();
 
     if (HAL_CAN_Start(&hcan1) != HAL_OK) {
         Error_Handler();
     }
+
+    /* CAN1/CAN2 share the acceptance-filter block on STM32F407.  Keep CAN2's
+       clock enabled and apply the filter after CAN1 has entered Normal mode;
+       this prevents the shared block from remaining in FINIT with bank 0
+       inactive on boards where the CAN peripheral was reset during startup. */
+    __HAL_RCC_CAN2_CLK_ENABLE();
+    CAN1_Filter_Config();
 
     if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK) {
         Error_Handler();
@@ -154,6 +192,17 @@ void BSP_BXCAN_Init(void)
 
 void BSP_BXCAN_Process(uint32_t now_ms)
 {
+#ifndef BSP_BXCAN_HOST_TEST
+    /* The CAN1/CAN2 filter block is shared on STM32F407.  Recover the
+       acceptance path if a peripheral reset or clock transition leaves the
+       shared bank in filter-init mode or deactivates bank 0. */
+    if (((RCC->APB1ENR & RCC_APB1ENR_CAN2EN) == 0U) ||
+        ((CAN1->FMR & CAN_FMR_FINIT) != 0U) ||
+        ((CAN1->FA1R & CAN_FA1R_FACT0) == 0U)) {
+        __HAL_RCC_CAN2_CLK_ENABLE();
+        CAN1_Filter_Config();
+    }
+#endif
     BXCAN_UpdateCommandAge(now_ms);
 #ifndef BSP_BXCAN_HOST_TEST
     BXCAN_UpdateHalCanDiagnostics();
@@ -183,6 +232,12 @@ void BSP_BXCAN_Process(uint32_t now_ms)
 
 #ifndef BSP_BXCAN_HOST_TEST
     if (!g_tx_active && BXCAN_TimeElapsed(now_ms, g_last_feedback_ms, BSP_BXCAN_FEEDBACK_PERIOD_MS)) {
+        uint32_t primask = __get_PRIMASK();
+
+        /* Freeze all correlated fields as one immutable snapshot. CAN RX and
+           error callbacks can update diagnostics concurrently with the main
+           control context, so do not allow a torn sequence/state pair. */
+        __disable_irq();
         g_feedback_seq++;
         g_heartbeat_counter++;
         g_tx_feedback_seq = g_feedback_seq;
@@ -194,6 +249,9 @@ void BSP_BXCAN_Process(uint32_t now_ms)
         g_tx_index = 0U;
         g_tx_active = 1U;
         g_last_feedback_ms = now_ms;
+        if (primask == 0U) {
+            __enable_irq();
+        }
     }
 
     while (g_tx_active && (g_tx_index < 8U) && (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) > 0U)) {
@@ -235,6 +293,54 @@ void BSP_BXCAN_Process(uint32_t now_ms)
         }
     }
 
+#ifdef AUTOTUNE_SAFE_PROFILE
+    if (!g_tx_active && !g_autotune_tx_active &&
+        BXCAN_TimeElapsed(now_ms, g_autotune_last_feedback_ms,
+                          BSP_BXCAN_FEEDBACK_PERIOD_MS)) {
+        g_autotune_tx_snapshot_seq++;
+        g_autotune_tx_index = 0U;
+        g_autotune_tx_active = 1U;
+        g_autotune_last_feedback_ms = now_ms;
+    }
+
+    while (g_autotune_tx_active && (g_autotune_tx_index < 11U) &&
+           (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) > 0U)) {
+        CAN_TxHeaderTypeDef tx_header = {0};
+        uint8_t tx_data[8] = {0};
+        uint32_t mailbox = 0U;
+        uint8_t axis = 0U;
+
+        tx_header.StdId = g_autotune_feedback_ids[g_autotune_tx_index];
+        tx_header.IDE = CAN_ID_STD;
+        tx_header.RTR = CAN_RTR_DATA;
+        tx_header.DLC = BXCAN_DLC_V1;
+        tx_header.TransmitGlobalTime = DISABLE;
+        if ((g_autotune_tx_index == 3U) || (g_autotune_tx_index == 5U) ||
+            (g_autotune_tx_index == 6U)) {
+            axis = 1U;
+        } else if ((g_autotune_tx_index == 4U) ||
+                   (g_autotune_tx_index == 7U) ||
+                   (g_autotune_tx_index == 8U)) {
+            axis = 2U;
+        }
+        if (AutotuneSafe_BuildTelemetryFrame(tx_header.StdId,
+                                              g_autotune_tx_snapshot_seq,
+                                              axis, tx_data) == 0U) {
+            g_autotune_tx_index = 11U;
+            g_autotune_tx_active = 0U;
+            break;
+        }
+        if (HAL_CAN_AddTxMessage(&hcan1, &tx_header, tx_data, &mailbox) != HAL_OK) {
+            BSP_BXCAN_ReportTxError();
+            break;
+        }
+        g_autotune_tx_index++;
+        if (g_autotune_tx_index >= 11U) {
+            g_autotune_tx_active = 0U;
+        }
+    }
+#endif
+
     if (!g_tx_active && Wheel_Calibration_Service_ShouldPublish(now_ms) &&
         (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) > 0U)) {
         CAN_TxHeaderTypeDef tx_header = {0};
@@ -261,6 +367,22 @@ void BSP_BXCAN_Process(uint32_t now_ms)
 #endif
 }
 
+#ifdef AUTOTUNE_SAFE_PROFILE
+void BSP_BXCAN_SetLocalVelocityCommand(int16_t left_velocity_mmps,
+                                       int16_t right_velocity_mmps,
+                                       uint32_t now_ms)
+{
+    uint16_t sequence = g_applied_command_seq_valid != 0U
+                            ? (uint16_t)(g_applied_command_seq + 1U)
+                            : 1U;
+
+    BXCAN_AcceptCommand(sequence,
+                        ((left_velocity_mmps == 0) && (right_velocity_mmps == 0))
+                            ? BSP_BXCAN_MODE_STOP : BSP_BXCAN_MODE_VELOCITY,
+                        0, left_velocity_mmps, right_velocity_mmps, now_ms);
+}
+#endif
+
 void BSP_BXCAN_OnRxFrame(uint16_t std_id,
                          uint8_t dlc,
                          uint8_t ide,
@@ -270,6 +392,13 @@ void BSP_BXCAN_OnRxFrame(uint16_t std_id,
 {
     uint16_t command_seq;
     uint8_t mode_flags;
+
+#ifdef AUTOTUNE_SAFE_PROFILE
+    if (std_id == AUTOTUNE_SAFE_ID_CMD_CONTROL) {
+        AutotuneSafe_OnCanFrame(dlc, ide, rtr, data, now_ms);
+        return;
+    }
+#endif
 
 #ifndef BSP_BXCAN_HOST_TEST
     if ((std_id == PID_TUNING_ID_CMD_GAINS) || (std_id == PID_TUNING_ID_CMD_D)) {
@@ -503,6 +632,7 @@ static void BSP_BXCAN_ResetForTest(void)
     g_fault_latched = 0U;
     g_fault_code = BSP_BXCAN_FAULT_NONE;
     g_applied_command_seq = 0U;
+    g_applied_command_seq_valid = 0U;
     g_feedback_seq = 0U;
     g_heartbeat_counter = 0U;
     g_last_feedback_ms = 0U;
@@ -514,6 +644,12 @@ static void BSP_BXCAN_ResetForTest(void)
     g_tx_feedback = g_feedback;
     g_tx_diagnostics = g_diagnostics;
     g_tx_device_time_ms = 0U;
+#ifdef AUTOTUNE_SAFE_PROFILE
+    g_autotune_tx_active = 0U;
+    g_autotune_tx_index = 0U;
+    g_autotune_tx_snapshot_seq = 0U;
+    g_autotune_last_feedback_ms = 0U;
+#endif
 #ifndef BSP_BXCAN_HOST_TEST
     g_last_hal_can_error = HAL_CAN_ERROR_NONE;
 #endif
@@ -732,6 +868,7 @@ static void BXCAN_AcceptCommand(uint16_t command_seq,
     g_command_group_accepted = 1U;
     g_steering_command_accepted = 1U;
     g_applied_command_seq = command_seq;
+    g_applied_command_seq_valid = 1U;
 }
 
 static void BXCAN_ApplyEstop(uint16_t command_seq, uint8_t mode_flags, uint32_t now_ms)
@@ -792,6 +929,13 @@ static void BXCAN_TryCompleteCommandGroup(void)
         return;
     }
 
+    /* A complete but duplicate/out-of-order group is not fresh. */
+    if (BXCAN_CommandSequenceIsFresh(g_pending_steering.command_seq) == 0U) {
+        /* Duplicate/out-of-order traffic is stale, not a malformed frame. */
+        BXCAN_ClearPending();
+        return;
+    }
+
     BXCAN_AcceptCommand(g_pending_steering.command_seq,
                         mode_flags,
                         g_pending_steering.steering_mrad,
@@ -801,6 +945,17 @@ static void BXCAN_TryCompleteCommandGroup(void)
                             ? g_pending_steering.received_time_ms
                             : g_pending_wheels.received_time_ms);
     BXCAN_ClearPending();
+}
+
+static uint8_t BXCAN_CommandSequenceIsFresh(uint16_t candidate)
+{
+    uint16_t distance;
+
+    if (g_applied_command_seq_valid == 0U) {
+        return 1U;
+    }
+    distance = (uint16_t)(candidate - g_applied_command_seq);
+    return (distance != 0U) && (distance < 0x8000U);
 }
 
 static uint8_t BXCAN_BuildFeedbackFrame(uint16_t std_id,
@@ -921,6 +1076,14 @@ static void BXCAN_UpdateHalCanDiagnostics(void)
 
     if ((error_code & HAL_CAN_ERROR_BOF) != 0U) {
         BSP_BXCAN_ReportCanError(BSP_BXCAN_CAN_ERROR_BUS_OFF);
+        /* A bus-off controller cannot receive the fresh STOP required by the
+           watchdog. Force the same zero-output SAFE_STOP path immediately. */
+        g_current_command.rear_left_velocity_mmps = 0;
+        g_current_command.rear_right_velocity_mmps = 0;
+        g_command_available = 1U;
+        g_command_group_accepted = 0U;
+        g_safe_stop_active = 1U;
+        BXCAN_SetProtocolFault(BSP_BXCAN_FAULT_COMMAND_TIMEOUT, 0U);
     } else if ((error_code & HAL_CAN_ERROR_EPV) != 0U) {
         BSP_BXCAN_ReportCanError(BSP_BXCAN_CAN_ERROR_PASSIVE);
     } else if (error_code != HAL_CAN_ERROR_NONE) {

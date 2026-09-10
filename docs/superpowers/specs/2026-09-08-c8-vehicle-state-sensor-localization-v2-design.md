@@ -138,7 +138,7 @@ base_link
 | `odom -> base_link` | 动态 | `car_localization` 内 local EKF | 全系统唯一；连续、不得因地图重定位跳变 |
 | `map -> odom` | 动态 | AMCL | 第一版全系统唯一；允许地图重定位产生校正 |
 
-当前工作区使用雷达帧 `laser`。v2 将目标帧统一为 `laser_link`，但迁移必须一次性修改雷达驱动 `frame_id`、`lidar_adapter` 期望帧、设备监控、静态 TF、AMCL 输入和测试。迁移完成前继续使用 `laser`；禁止同时发布 `laser` 和 `laser_link` 两套安装 TF 来掩盖配置不一致。
+当前工作区已完成雷达帧原子迁移，运行态和配置统一使用 `laser_link`。雷达驱动 `frame_id`、`lidar_adapter` 期望帧、设备监控、静态 TF、AMCL 输入约定和测试必须保持一致；禁止恢复 `laser` 或同时发布 `laser`/`laser_link` 两套安装 TF 来掩盖配置不一致。
 
 ### 4.2 发布规范
 
@@ -264,6 +264,8 @@ wheel wz 与 IMU gyro z 可同时融合，因为其误差来源不同；前提�
 - EKF 重置期间停止转发旧观测；重置后必须等待新的 wheel/IMU 样本和连续质量恢复样本。
 - `/odom` 只发布通过 facade 质量门的 local EKF 输出。
 - local EKF 异常不得由 wheel odom pose 直接旁路生成 `odom -> base_link`。
+
+本节的频率语义、`odom` 初始化、TF 检查、timeout 责任边界和静态 bring-up 验收标准，见《[C8 v2 局部 EKF 设计补充版](2026-09-08-c8-local-ekf-design-supplement.md)》。
 
 ## 6. 雷达地图定位设计
 

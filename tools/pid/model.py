@@ -31,6 +31,11 @@ class Sample:
     voltage_v: Optional[float] = None
     safety_state: Optional[str] = None
     safety_fault: Optional[str] = None
+    requested_target: Optional[float] = None
+    effective_target: Optional[float] = None
+    pwm_limit: Optional[float] = None
+    session_id: Optional[int] = None
+    experiment_id: Optional[int] = None
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -46,6 +51,11 @@ class Sample:
             "voltage_v": self.voltage_v,
             "safety_state": self.safety_state,
             "safety_fault": self.safety_fault,
+            "requested_target": self.requested_target,
+            "effective_target": self.effective_target,
+            "pwm_limit": self.pwm_limit,
+            "session_id": self.session_id,
+            "experiment_id": self.experiment_id,
         }
 
 

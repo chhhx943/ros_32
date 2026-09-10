@@ -1,0 +1,82 @@
+{
+  "status": "BLOCKED_PREFLIGHT: socketcan/can0: [WinError 10047] 使用了与请求的协议不兼容的地址。",
+  "preflight": {
+    "programmer_available": true,
+    "target_connected": true,
+    "can_available": false,
+    "can_detail": "socketcan/can0: [WinError 10047] 使用了与请求的协议不兼容的地址。",
+    "independent_driver_interlock": false,
+    "profile_id": null,
+    "level": null,
+    "pwm_limit": null
+  },
+  "actions": [
+    "software validation: PASS",
+    "ST-LINK probe: PASS",
+    "CAN probe: FAIL: socketcan/can0: [WinError 10047] 使用了与请求的协议不兼容的地址。"
+  ],
+  "flash_allowed": false,
+  "hardware_motion_started": false,
+  "safe_stop_confirmed": false,
+  "low_energy_only": true,
+  "motion_plan_mmps": [
+    25,
+    50,
+    75,
+    100
+  ],
+  "evidence": {},
+  "software": {
+    "python_regression": {
+      "command": [
+        "D:\\anaconda\\python.exe",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-q"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "----------------------------------------------------------------------\nRan 173 tests in 51.466s\n\nOK\n"
+    },
+    "debug_build": {
+      "command": [
+        "cmake",
+        "--build",
+        "--preset",
+        "Debug"
+      ],
+      "returncode": 0,
+      "stdout": "ninja: no work to do.\n",
+      "stderr": ""
+    },
+    "autotune_safe_build": {
+      "command": [
+        "cmake",
+        "--build",
+        "--preset",
+        "AutotuneSafe"
+      ],
+      "returncode": 0,
+      "stdout": "ninja: no work to do.\n",
+      "stderr": ""
+    },
+    "passed": true,
+    "images": {
+      "build\\Debug\\ros.elf": {
+        "bytes": 1284248,
+        "sha256": "47134248b0063284d46d8465767a2a683f3aabf1de91e366c801c3b025721d9b"
+      },
+      "build\\AutotuneSafe\\ros.elf": {
+        "bytes": 1300904,
+        "sha256": "d7813d2db3e35a8384ba75adf20d555cd72270c30f4099104604a9a07828d702"
+      },
+      "build\\AutotuneSafe\\ros_autotune_safe.bin": {
+        "bytes": 48040,
+        "sha256": "5d63f373ba55c9767130c85aa568de05eb4471fe0382c377f1e6d52c12ff4589"
+      }
+    }
+  }
+}

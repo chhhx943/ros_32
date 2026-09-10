@@ -11,7 +11,7 @@ if __package__ in (None, ""):
 from tools.pid.experiment import ExperimentRunner, Scenario
 from tools.pid.model import PIDGains
 from tools.pid.search import generate_candidates
-from tools.pid.transport import PythonCanTransport, SimulationTransport
+from tools.pid.transport import CAN_V1_BITRATE, PythonCanTransport, SimulationTransport
 
 
 def _gains(data: Dict[str, Any]) -> PIDGains:
@@ -37,7 +37,8 @@ def _write_outputs(output_dir: Path, runner: ExperimentRunner) -> None:
     with (output_dir / "report.json").open("w", encoding="utf-8", newline="\n") as handle:
         json.dump(report, handle, indent=2, ensure_ascii=False)
     fields = ["time_s", "target", "actual", "error", "control_output", "kp", "ki", "kd",
-              "current_a", "voltage_v", "safety_state", "safety_fault"]
+              "current_a", "voltage_v", "safety_state", "safety_fault", "requested_target",
+              "effective_target", "pwm_limit", "session_id", "experiment_id"]
     with (output_dir / "samples.csv").open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
@@ -49,6 +50,7 @@ def main(argv: List[str] = None) -> int:
     parser.add_argument("--transport", choices=("sim", "python-can"), default="sim")
     parser.add_argument("--channel", default="can0")
     parser.add_argument("--interface", default="socketcan")
+    parser.add_argument("--bitrate", type=int, default=CAN_V1_BITRATE)
     parser.add_argument("--config", type=Path, default=Path(__file__).with_name("default_config.json"))
     parser.add_argument("--iterations", type=int, default=None)
     parser.add_argument("--seed", type=int, default=7)
@@ -65,7 +67,8 @@ def main(argv: List[str] = None) -> int:
     if args.transport == "sim":
         transport = SimulationTransport()
     else:
-        transport = PythonCanTransport(channel=args.channel, interface=args.interface)
+        transport = PythonCanTransport(channel=args.channel, interface=args.interface,
+                                       bitrate=args.bitrate)
     runner = ExperimentRunner(transport, initial)
     for candidate in generate_candidates(initial, config["bounds"], iterations, args.seed):
         print("Observe → Analyze → Hypothesis → Select Candidate", candidate.as_dict())

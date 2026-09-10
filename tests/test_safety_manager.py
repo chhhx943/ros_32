@@ -151,8 +151,10 @@ class SafetyManagerHostTest(unittest.TestCase):
                 if (Safety_Manager_GetAction() != SAFETY_ACTION_COAST) return 2;
 
                 Safety_Manager_AcceptCommand(&safe_stop);
+                if (Safety_Manager_GetState() != SAFETY_STATE_SAFE_STOP) return 31;
                 if (Safety_Manager_GetAction() != SAFETY_ACTION_COAST) return 3;
                 Safety_Manager_AcceptCommand(&velocity);
+                if (Safety_Manager_GetState() != SAFETY_STATE_SAFE_STOP) return 32;
                 if (Safety_Manager_GetAction() != SAFETY_ACTION_COAST) return 4;
 
                 fake_fault = BSP_BXCAN_FAULT_NONE;
@@ -215,6 +217,137 @@ class SafetyManagerHostTest(unittest.TestCase):
                 if (Safety_Manager_GetState() != SAFETY_STATE_CALIBRATION) return 1;
                 if (Safety_Manager_GetAction() != SAFETY_ACTION_CALIBRATION) return 2;
                 if (Safety_Manager_DriveAllowed() != 0U) return 3;
+                return 0;
+            }
+        """)
+
+    def test_successful_calibration_rearbitrates_out_of_calibration_same_cycle(self):
+        self.compile_and_run(COMMON_STUBS + r"""
+            int main(void)
+            {
+                BSP_BXCAN_Command_t stop = make_command(BSP_BXCAN_MODE_STOP, 0, 0);
+                Wheel_Calibration_ServiceRequest_t request = {0};
+                EncoderSample_t left = {0};
+                EncoderSample_t right = {0};
+
+                request.service_seq = 8U;
+                request.opcode = WHEEL_CALIBRATION_OPCODE_START;
+                request.options = WHEEL_CALIBRATION_OPTION_MASK;
+                request.service_cookie = WHEEL_CALIBRATION_SERVICE_COOKIE;
+                left.trusted = 1U;
+                right.trusted = 1U;
+
+                Wheel_Calibration_Service_Init();
+                Safety_Manager_Init();
+                Safety_Manager_Process(0U);
+                Wheel_Calibration_Service_OnRequest(&request, 0U, &stop, 1U, 0U, 0U);
+                Wheel_Calibration_Service_Process(0U, &stop, 1U, &left, &right, 0U, 0U);
+                Wheel_Calibration_Service_Process(300U, &stop, 1U, &left, &right, 0U, 0U);
+                Safety_Manager_Process(300U);
+                if (Safety_Manager_GetState() != SAFETY_STATE_CALIBRATION) return 1;
+
+                left.accumulated_counts = 600;
+                Wheel_Calibration_Service_Process(1800U, &stop, 1U, &left, &right, 0U, 0U);
+                Wheel_Calibration_Service_Process(2100U, &stop, 1U, &left, &right, 0U, 0U);
+                Wheel_Calibration_Service_Process(2400U, &stop, 1U, &left, &right, 0U, 0U);
+                left.accumulated_counts = 0;
+                Wheel_Calibration_Service_Process(3900U, &stop, 1U, &left, &right, 0U, 0U);
+
+                right.accumulated_counts = 600;
+                Wheel_Calibration_Service_Process(5400U, &stop, 1U, &left, &right, 0U, 0U);
+                Wheel_Calibration_Service_Process(5700U, &stop, 1U, &left, &right, 0U, 0U);
+                Wheel_Calibration_Service_Process(6000U, &stop, 1U, &left, &right, 0U, 0U);
+                right.accumulated_counts = 0;
+                Wheel_Calibration_Service_Process(7500U, &stop, 1U, &left, &right, 0U, 0U);
+                if (Wheel_Calibration_Service_GetState() != WHEEL_CALIBRATION_TX_SUCCEEDED) return 2;
+
+                Safety_Manager_Process(7500U);
+                if (Safety_Manager_GetState() != SAFETY_STATE_STANDBY) return 3;
+                if (Safety_Manager_GetAction() != SAFETY_ACTION_COAST) return 4;
+                return 0;
+            }
+        """)
+
+    def test_cancelled_calibration_rearbitrates_to_calibration_required(self):
+        self.compile_and_run(COMMON_STUBS + r"""
+            int main(void)
+            {
+                BSP_BXCAN_Command_t stop = make_command(BSP_BXCAN_MODE_STOP, 0, 0);
+                Wheel_Calibration_ServiceRequest_t start = {0};
+                Wheel_Calibration_ServiceRequest_t cancel = {0};
+
+                start.service_seq = 9U;
+                start.opcode = WHEEL_CALIBRATION_OPCODE_START;
+                start.options = WHEEL_CALIBRATION_OPTION_MASK;
+                start.service_cookie = WHEEL_CALIBRATION_SERVICE_COOKIE;
+                cancel = start;
+                cancel.opcode = WHEEL_CALIBRATION_OPCODE_CANCEL;
+                cancel.options = WHEEL_CALIBRATION_OPTION_MAINTENANCE_CONFIRM;
+
+                Wheel_Calibration_Service_Init();
+                Safety_Manager_Init();
+                Safety_Manager_Process(0U);
+                Wheel_Calibration_Service_OnRequest(&start, 0U, &stop, 1U, 0U, 0U);
+                Safety_Manager_Process(1U);
+                if (Safety_Manager_GetState() != SAFETY_STATE_CALIBRATION) return 1;
+
+                Wheel_Calibration_Service_OnRequest(&cancel, 2U, &stop, 1U, 0U, 0U);
+                if (Wheel_Calibration_Service_GetState() != WHEEL_CALIBRATION_TX_CANCELED) return 2;
+                Safety_Manager_Process(2U);
+                if (Safety_Manager_GetState() != SAFETY_STATE_CALIBRATION_REQUIRED) return 3;
+                if (Safety_Manager_GetAction() != SAFETY_ACTION_COAST) return 4;
+                return 0;
+            }
+        """)
+
+    def test_failed_calibration_reset_returns_to_required_and_allows_retry(self):
+        self.compile_and_run(COMMON_STUBS + r"""
+            static Wheel_Calibration_ServiceRequest_t make_calibration_start(uint16_t seq)
+            {
+                Wheel_Calibration_ServiceRequest_t request = {0};
+                request.service_seq = seq;
+                request.opcode = WHEEL_CALIBRATION_OPCODE_START;
+                request.options = WHEEL_CALIBRATION_OPTION_MASK;
+                request.service_cookie = WHEEL_CALIBRATION_SERVICE_COOKIE;
+                return request;
+            }
+
+            int main(void)
+            {
+                BSP_BXCAN_Command_t stop = make_command(BSP_BXCAN_MODE_STOP, 0, 0);
+                BSP_BXCAN_Command_t reset_stop = make_command(
+                    BSP_BXCAN_MODE_STOP | BSP_BXCAN_FLAG_RESET_FAULT, 0, 0);
+                Wheel_Calibration_ServiceRequest_t start = make_calibration_start(1U);
+                Wheel_Calibration_ServiceRequest_t retry = make_calibration_start(2U);
+                EncoderSample_t still = {0};
+                still.trusted = 1U;
+
+                Wheel_Calibration_Service_Init();
+                Safety_Manager_Init();
+                Safety_Manager_Process(0U);
+                Wheel_Calibration_Service_OnRequest(&start, 0U, &stop, 1U, 0U, 0U);
+                Wheel_Calibration_Service_Process(0U, &stop, 1U, &still, &still, 0U, 0U);
+                Wheel_Calibration_Service_Process(300U, &stop, 1U, &still, &still, 0U, 0U);
+                Wheel_Calibration_Service_Process(1800U, &stop, 1U, &still, &still, 0U, 0U);
+                if (Wheel_Calibration_Service_GetState() != WHEEL_CALIBRATION_TX_FAILED_VALIDATION) return 1;
+
+                Safety_Manager_Process(1800U);
+                if (Safety_Manager_GetState() != SAFETY_STATE_FAULT) return 2;
+                if (Safety_Manager_GetFault() != BSP_BXCAN_FAULT_CALIBRATION_INVALID) return 3;
+
+                Safety_Manager_AcceptCommand(&reset_stop);
+                if (Safety_Manager_GetState() != SAFETY_STATE_CALIBRATION_REQUIRED) return 4;
+                if (Safety_Manager_GetFault() != BSP_BXCAN_FAULT_NONE) return 5;
+                if (Wheel_Calibration_Service_GetState() == WHEEL_CALIBRATION_TX_FAILED_VALIDATION) return 6;
+
+                Safety_Manager_Process(1801U);
+                if (Safety_Manager_GetState() != SAFETY_STATE_CALIBRATION_REQUIRED) return 7;
+                if (Safety_Manager_GetFault() != BSP_BXCAN_FAULT_NONE) return 8;
+
+                Wheel_Calibration_Service_OnRequest(&retry, 1802U, &reset_stop, 1U, 0U, 0U);
+                if (Wheel_Calibration_Service_GetState() != WHEEL_CALIBRATION_TX_PRECHECK) return 9;
+                Safety_Manager_Process(1802U);
+                if (Safety_Manager_GetState() != SAFETY_STATE_CALIBRATION) return 10;
                 return 0;
             }
         """)

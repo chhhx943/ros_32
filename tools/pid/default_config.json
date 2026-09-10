@@ -6,11 +6,6 @@
     "kd": [0.0, 0.5]
   },
   "scenarios": [
-    {"name": "low_speed_step", "target": 100.0, "duration_s": 0.6},
-    {"name": "mid_speed_step", "target": 600.0, "duration_s": 0.8},
-    {"name": "high_speed_step", "target": 1200.0, "duration_s": 1.0},
-    {"name": "acceleration", "target": 1600.0, "duration_s": 1.0},
-    {"name": "deceleration", "target": 400.0, "duration_s": 0.6},
-    {"name": "reverse", "target": -600.0, "duration_s": 0.8}
+    {"name": "l1_forward_ramp", "target": 100.0, "duration_s": 0.6}
   ]
 }

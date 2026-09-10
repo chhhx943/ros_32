@@ -15,7 +15,7 @@
 
 | 功能 | 资源 | 约定 |
 |---|---|---|
-| CAN | CAN1，PA11/PA12 | Classic CAN 2.0A，1 Mbit/s，11-bit ID |
+| CAN | CAN1，PB8/PB9 remap（PB8 RX，PB9 TX） | Classic CAN 2.0A，500 kbit/s，11-bit ID |
 | 左轮编码器 | TIM1，PE9/PE11 | 正交编码器；实际方向由标定配置确定 |
 | 右轮编码器 | TIM2，PA0/PA1 | 正交编码器；实际方向由标定配置确定 |
 | 左右电机 PWM | TIM3_CH1/CH2，PA6/PA7 | 20 kHz，占空比内部统一为 0..1000 |
@@ -26,7 +26,7 @@
 
 TB6612 模块应将 STBY 硬件拉高，必须在台架阶段验证。TB6612FNG 支持最高 100 kHz PWM，20 kHz 载波在其能力范围内。电机持续电流和堵转电流必须按实际电机与模块散热条件验证，不以模块商品页峰值宣传作为依据。
 
-CAN 总线采用短线连接，总线两端各放置 120 ohm 终端。ROS/SocketCAN 必须配置为同一波特率。联调记录应包含线长、终端、供电、CAN error counter 和 bus-off 行为。
+CAN 总线采用短线连接，总线两端各放置 120 ohm 终端，固定速率为 500 kbit/s。ROS/SocketCAN 必须配置为同一波特率。联调记录应包含线长、终端、供电、CAN error counter 和 bus-off 行为。
 
 ## 3. 总体架构
 
@@ -291,7 +291,7 @@ CAN 保持自动 bus-off 管理。软件记录 error warning、error passive、b
 
 ## 15. 实施阶段
 
-1. 修正 CubeMX 资源：TIM1/TIM2、TIM3、TIM4、TIM6、PE1，保持 CAN 1 Mbit/s。
+1. 修正 CubeMX 资源：TIM1/TIM2、TIM3、TIM4、TIM6、PE1，保持 CAN 500 kbit/s。
 2. 原地扩展 `encoder.c`、`bsp_motor.c`、`PID.c` 和 PWM 层，先完成板级波形与单元测试。
 3. 从现有 `bsp_bxcan` 提取纯协议边界，保持现有测试持续通过。
 4. 实现调度、集中配置、安全状态机和反馈快照。
@@ -308,4 +308,3 @@ CAN 保持自动 bus-off 管理。软件记录 error warning、error passive、b
 - 未接传感器支持的电流、温度或 TB6612 故障判断。
 - CAN 应用层 CRC、认证或授权。
 - 未经单独协议与测试定义的 MAINTENANCE 运动控制。
-

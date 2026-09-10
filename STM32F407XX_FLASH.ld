@@ -57,8 +57,13 @@ MEMORY
 {
 RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 128K
 CCMRAM (xrw)      : ORIGIN = 0x10000000, LENGTH = 64K
-FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 384K
+    FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 256K
 }
+
+/* Sectors 6 and 7 (0x08040000..0x0807FFFF) are reserved for the
+   dual-slot, power-fail-safe wheel calibration store. */
+CALIBRATION_STORAGE_START = 0x08040000;
+CALIBRATION_STORAGE_END = 0x08080000;
 
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM);    /* end of RAM */
@@ -245,6 +250,15 @@ SECTIONS
 
   PROVIDE( __bss_start = __tbss_start );
   PROVIDE( __bss_size = __bss_end - __bss_start );
+
+  /* Retained debugger-to-application handoff. Startup code must not clear
+     this section; the AutotuneSafe profile validates and consumes it once. */
+  .noinit (NOLOAD) : ALIGN(4)
+  {
+    *(.noinit)
+    *(.noinit*)
+    . = ALIGN(4);
+  } >RAM
 
   /* User_heap_stack section, used to check that there is enough RAM left */
   ._user_heap_stack (NOLOAD) :

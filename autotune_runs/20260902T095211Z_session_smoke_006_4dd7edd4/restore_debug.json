@@ -1,0 +1,119 @@
+{
+  "stage": "RESTORE_DEBUG_FAIL",
+  "max_attempts": 3,
+  "deadline_s": 30.0,
+  "attempts": [
+    {
+      "attempt": 1,
+      "stage": "WAIT_STLINK_RELEASE",
+      "started_at": "2026-09-02T09:51:56.372538+00:00",
+      "gdb_alive": false,
+      "gdb_server_alive": false,
+      "target_connected": false,
+      "target_state_before": {
+        "pc": "0x80013ce <RequestValid+14>",
+        "halted": true
+      },
+      "probe": {
+        "argv": [
+          "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+          "-c",
+          "port=SWD sn=3E3703013212354D434B4E00",
+          "freq=4000"
+        ],
+        "returncode": 1,
+        "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n",
+        "stderr": "",
+        "started_at": "2026-09-02T09:51:56.372538+00:00",
+        "exited_at": "2026-09-02T09:52:01.415792+00:00",
+        "timeout_s": 10.0,
+        "timed_out": false
+      },
+      "elapsed_ms": 5047,
+      "failure": {
+        "code": "RESTORE_DEBUG_STLINK_RELEASE_TIMEOUT",
+        "detail": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n"
+      }
+    },
+    {
+      "attempt": 2,
+      "stage": "WAIT_STLINK_RELEASE",
+      "started_at": "2026-09-02T09:52:01.516653+00:00",
+      "gdb_alive": false,
+      "gdb_server_alive": false,
+      "target_connected": false,
+      "target_state_before": {
+        "pc": "0x80013ce <RequestValid+14>",
+        "halted": true
+      },
+      "probe": {
+        "argv": [
+          "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+          "-c",
+          "port=SWD sn=3E3703013212354D434B4E00",
+          "freq=4000"
+        ],
+        "returncode": 1,
+        "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n",
+        "stderr": "",
+        "started_at": "2026-09-02T09:52:01.516653+00:00",
+        "exited_at": "2026-09-02T09:52:06.595397+00:00",
+        "timeout_s": 10.0,
+        "timed_out": false
+      },
+      "elapsed_ms": 5078,
+      "failure": {
+        "code": "RESTORE_DEBUG_STLINK_RELEASE_TIMEOUT",
+        "detail": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n"
+      }
+    },
+    {
+      "attempt": 3,
+      "stage": "WAIT_STLINK_RELEASE",
+      "started_at": "2026-09-02T09:52:06.695991+00:00",
+      "gdb_alive": false,
+      "gdb_server_alive": false,
+      "target_connected": false,
+      "target_state_before": {
+        "pc": "0x80013ce <RequestValid+14>",
+        "halted": true
+      },
+      "probe": {
+        "argv": [
+          "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+          "-c",
+          "port=SWD sn=3E3703013212354D434B4E00",
+          "freq=4000"
+        ],
+        "returncode": 1,
+        "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n",
+        "stderr": "",
+        "started_at": "2026-09-02T09:52:06.695991+00:00",
+        "exited_at": "2026-09-02T09:52:11.736156+00:00",
+        "timeout_s": 10.0,
+        "timed_out": false
+      },
+      "elapsed_ms": 5030,
+      "failure": {
+        "code": "RESTORE_DEBUG_STLINK_RELEASE_TIMEOUT",
+        "detail": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n"
+      }
+    }
+  ],
+  "gdb_alive": true,
+  "target_connected": true,
+  "target_state_before": {
+    "pc": "0x80013ce <RequestValid+14>",
+    "halted": true
+  },
+  "target_state_after": {
+    "pc": "0x80013ce <RequestValid+14>",
+    "halted": true
+  },
+  "detached": true,
+  "status": "FAIL",
+  "failure": {
+    "code": "RESTORE_DEBUG_STLINK_RELEASE_TIMEOUT",
+    "detail": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n"
+  }
+}

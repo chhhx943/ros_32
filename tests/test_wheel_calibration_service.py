@@ -190,6 +190,80 @@ class WheelCalibrationServiceHostTest(unittest.TestCase):
             """
         )
 
+    def test_start_pwm_is_ramped_and_first_response_is_persisted(self):
+        self.compile_and_run(
+            COMMON
+            + r"""
+            int main(void)
+            {
+                BSP_BXCAN_Command_t stop = make_stop();
+                Wheel_Calibration_ServiceRequest_t start = make_start(22U);
+                Wheel_Calibration_Recommendation_t recommendation = {0};
+                EncoderSample_t left = sample(0, 0);
+                EncoderSample_t right = sample(0, 0);
+
+                Wheel_Calibration_Service_Init();
+                Wheel_Calibration_Service_OnRequest(&start, 0U, &stop, 1U, 0U, 0U);
+                Wheel_Calibration_Service_Process(0U, &stop, 1U, &left, &right, 0U, 0U);
+                Wheel_Calibration_Service_Process(300U, &stop, 1U, &left, &right, 0U, 0U);
+                if (Wheel_Calibration_Service_GetRecommendation(&recommendation) == 0U ||
+                    recommendation.left_pwm <= 0 || recommendation.left_pwm >= 100) return 1;
+                Wheel_Calibration_Service_Process(500U, &stop, 1U, &left, &right, 0U, 0U);
+                if (Wheel_Calibration_Service_GetRecommendation(&recommendation) == 0U ||
+                    recommendation.left_pwm <= 0 || recommendation.left_pwm <= 50) return 2;
+                left.accumulated_counts = 300;
+                Wheel_Calibration_Service_Process(600U, &stop, 1U, &left, &right, 0U, 0U);
+                left.accumulated_counts = 600;
+                Wheel_Calibration_Service_Process(1800U, &stop, 1U, &left, &right, 0U, 0U);
+                if (Wheel_Calibration_Service_GetStage() != WHEEL_CALIBRATION_STAGE_LEFT_SETTLE) return 3;
+                return 0;
+            }
+            """
+        )
+
+    def test_terminal_decision_latches_the_exact_left_sample(self):
+        self.compile_and_run(
+            COMMON
+            + r"""
+            int main(void)
+            {
+                BSP_BXCAN_Command_t stop = make_stop();
+                Wheel_Calibration_ServiceRequest_t start = make_start(23U);
+                Wheel_Calibration_TerminalSample_t terminal = {0};
+                EncoderSample_t left = sample(0, 0);
+                EncoderSample_t right = sample(0, 0);
+
+                Wheel_Calibration_Service_Init();
+                Wheel_Calibration_Service_OnRequest(&start, 0U, &stop, 1U, 0U, 0U);
+                Wheel_Calibration_Service_Process(0U, &stop, 1U, &left, &right, 0U, 0U);
+                Wheel_Calibration_Service_Process(300U, &stop, 1U, &left, &right, 0U, 0U);
+
+                left.accumulated_counts = 100;
+                left.delta_counts = 100;
+                left.velocity_mmps = 100;
+                left.trusted = 1U;
+                Wheel_Calibration_Service_Process(1800U, &stop, 1U, &left, &right, 0U, 0U);
+
+                if (Wheel_Calibration_Service_GetState() != WHEEL_CALIBRATION_TX_FAILED_VALIDATION) return 1;
+                if (Wheel_Calibration_Service_GetExitReason() !=
+                    WHEEL_CALIBRATION_EXIT_FORWARD_INSUFFICIENT_MOTION) return 2;
+                left.accumulated_counts = 9999;
+                left.delta_counts = 9999;
+                left.trusted = 0U;
+                Wheel_Calibration_Service_GetTerminalSample(&terminal);
+                if (terminal.valid == 0U) return 3;
+                if (terminal.stage != WHEEL_CALIBRATION_STAGE_LEFT_FORWARD) return 4;
+                if (terminal.timestamp_ms != 1800U) return 5;
+                if (terminal.left_sample.accumulated_counts != 100) return 6;
+                if (terminal.left_sample.delta_counts != 100) return 7;
+                if (terminal.left_sample.velocity_mmps != 100) return 8;
+                if (terminal.left_sample.trusted != 1U) return 9;
+                if (terminal.stage_delta_counts != 100) return 10;
+                return 0;
+            }
+            """
+        )
+
     def test_both_wheels_commit_only_after_forward_reverse_validation(self):
         self.compile_and_run(
             COMMON
@@ -223,6 +297,15 @@ class WheelCalibrationServiceHostTest(unittest.TestCase):
                 if (Wheel_Calibration_Service_GetState() != WHEEL_CALIBRATION_TX_SUCCEEDED) return 1;
                 if (Wheel_Calibration_Service_GetExitReason() != WHEEL_CALIBRATION_EXIT_SUCCESS) return 2;
                 if (Wheel_Calibration_IsValid() == 0U) return 3;
+                {
+                    Wheel_Calibration_TerminalSample_t terminal = {0};
+                    Wheel_Calibration_Service_GetTerminalSample(&terminal);
+                    if (terminal.valid == 0U) return 4;
+                    if (terminal.terminal_state != WHEEL_CALIBRATION_TX_SUCCEEDED) return 5;
+                    if (terminal.stage != WHEEL_CALIBRATION_STAGE_RIGHT_REVERSE) return 6;
+                    if (terminal.timestamp_ms != 7500U) return 7;
+                    if (terminal.left_sample.accumulated_counts != 0) return 8;
+                }
                 return 0;
             }
             """

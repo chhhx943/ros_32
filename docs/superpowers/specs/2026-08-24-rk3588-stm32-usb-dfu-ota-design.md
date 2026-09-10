@@ -132,9 +132,11 @@ STM32F407VE 具有 512 KiB 主 Flash。按实际扇区边界划分：
 | Metadata A | S2 | `0x08008000-0x0800BFFF` | 16 KiB | 元数据日志 + 密钥表副本 |
 | Metadata B | S3 | `0x0800C000-0x0800FFFF` | 16 KiB | 元数据日志 + 密钥表副本 |
 | Application A | S4-S5 | `0x08010000-0x0803FFFF` | 192 KiB | A 槽 |
-| Application B | S6-S7 | `0x08040000-0x0807FFFF` | 256 KiB | B 槽 |
+| Application B | S6-S7 | `0x08040000-0x0807FFFF` | 256 KiB | B 槽（OTA 设计占位） |
 
 发布镜像统一限制为不超过 191 KiB。每个槽最后 1 KiB 为 descriptor 持久副本区（A 槽 `0x0803FC00-0x0803FFFF`，B 槽 `0x0807FC00-0x0807FFFF`），保存两份带 CRC32 的 descriptor 副本，由 Bootloader 验签后写入，不属于 DFU 下载范围。B 槽多出的空间不用于发布更大的版本，以保证 A/B 对称可升级。
+
+> 底盘控制器当前已将 S6/S7（`0x08040000`/`0x08060000`）保留给双槽掉电安全 wheel calibration。该 OTA A/B 分区仍是未实现的设计占位；在实现 Bootloader/OTA 前必须重新分区并保留 calibration，不能把此表直接烧录执行。
 
 ### 5.1 绝对链接问题
 

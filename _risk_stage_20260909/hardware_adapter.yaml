@@ -1,0 +1,25 @@
+/car/hardware_adapter:
+  ros__parameters:
+    # Real Pi CAN profile.  The adapter is deliberately fail-closed during
+    # static validation; no motion command is permitted by this file.
+    backend: socketcan
+    can_interface: can0
+    allow_motion: false
+    read_only: true
+    lockstep_mode: false
+    suppress_wheel_odom_publish: false
+    command_timeout_sec: 0.10
+    feedback_timeout_sec: 0.10
+    heartbeat_timeout_sec: 0.20
+    publish_rate_hz: 50.0
+    feedback_publish_rate_hz: 50.0
+    wheel_odom_frame: odom
+    wheel_odom_child_frame: base_link
+    wheelbase_m: 0.1417
+    rear_track_m: 0.120
+    max_equivalent_steering_angle_rad: 0.3490658504
+    max_rear_wheel_speed_mps: 0.600
+    wheel_radius_m: 0.03325
+    left_position_sign: 1
+    right_position_sign: 1
+    max_position_delta_m: 0.20

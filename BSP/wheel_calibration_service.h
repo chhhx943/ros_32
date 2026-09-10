@@ -22,7 +22,9 @@ extern "C" {
 #define WHEEL_CALIBRATION_OPTION_MAINTENANCE_CONFIRM 0x01U
 #define WHEEL_CALIBRATION_OPTION_WHEELS_LIFTED_CONFIRM 0x02U
 #define WHEEL_CALIBRATION_OPTION_MASK                0x03U
-#define WHEEL_CALIBRATION_PWM_PERMILLE               100
+#define WHEEL_CALIBRATION_PWM_INITIAL_PERMILLE       50U
+#define WHEEL_CALIBRATION_PWM_STEP_PERMILLE          25U
+#define WHEEL_CALIBRATION_PWM_STEP_HOLD_MS           200U
 #define WHEEL_CALIBRATION_MIN_RESPONSE_COUNTS        560
 #define WHEEL_CALIBRATION_START_RESPONSE_COUNTS      280
 #define WHEEL_CALIBRATION_PWM_MAX_PERMILLE            250
@@ -107,6 +109,27 @@ typedef struct {
     int16_t right_pwm;
 } Wheel_Calibration_Recommendation_t;
 
+typedef struct {
+    Wheel_Calibration_Stage_t stage;
+    int64_t left_start_counts;
+    int64_t left_delta_counts;
+    uint16_t stage_pwm_permille;
+    uint8_t left_sample_trusted;
+    uint8_t response_detected;
+} Wheel_Calibration_StageDiagnostics_t;
+
+typedef struct {
+    uint8_t valid;
+    Wheel_Calibration_TransactionState_t terminal_state;
+    Wheel_Calibration_Stage_t stage;
+    Wheel_Calibration_ExitReason_t exit_reason;
+    uint32_t timestamp_ms;
+    EncoderSample_t left_sample;
+    int64_t stage_delta_counts;
+    uint16_t stage_pwm_permille;
+    uint8_t response_detected;
+} Wheel_Calibration_TerminalSample_t;
+
 uint8_t Wheel_Calibration_Service_DecodeRequest(uint8_t dlc,
                                                 uint8_t ide,
                                                 uint8_t rtr,
@@ -129,6 +152,8 @@ void Wheel_Calibration_Service_Process(uint32_t now_ms,
                                        uint8_t estop_active,
                                        uint8_t fault_active);
 uint8_t Wheel_Calibration_Service_GetRecommendation(Wheel_Calibration_Recommendation_t *recommendation);
+void Wheel_Calibration_Service_GetStageDiagnostics(Wheel_Calibration_StageDiagnostics_t *diagnostics);
+void Wheel_Calibration_Service_GetTerminalSample(Wheel_Calibration_TerminalSample_t *sample);
 Wheel_Calibration_TransactionState_t Wheel_Calibration_Service_GetState(void);
 Wheel_Calibration_Stage_t Wheel_Calibration_Service_GetStage(void);
 Wheel_Calibration_ExitReason_t Wheel_Calibration_Service_GetExitReason(void);
@@ -138,6 +163,7 @@ uint8_t Wheel_Calibration_Service_ShouldPublish(uint32_t now_ms);
 void Wheel_Calibration_Service_MarkPublished(uint32_t now_ms);
 uint8_t Wheel_Calibration_Service_HasResponsePending(void);
 uint8_t Wheel_Calibration_Service_IsActive(void);
+uint8_t Wheel_Calibration_Service_ClearFailedValidation(void);
 
 #ifdef __cplusplus
 }

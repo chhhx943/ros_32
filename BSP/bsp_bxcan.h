@@ -9,17 +9,28 @@
 #endif
 
 #include "pid_tuning.h"
+#include "autotune_safe.h"
 
 #define BSP_BXCAN_ID_CMD_PID_GAINS             PID_TUNING_ID_CMD_GAINS
 #define BSP_BXCAN_ID_CMD_PID_D                 PID_TUNING_ID_CMD_D
 #define BSP_BXCAN_ID_FB_PID_GAINS              PID_TUNING_ID_FB_GAINS
 #define BSP_BXCAN_ID_FB_CONTROL_OUTPUT         0x188U
+#define AUTOTUNE_SAFE_ID_CMD_CONTROL           0x125U
+#define BSP_BXCAN_ID_FB_AUTOTUNE_IDENTITY      AUTOTUNE_SAFE_ID_FB_IDENTITY
+#define BSP_BXCAN_ID_FB_AUTOTUNE_STATE         AUTOTUNE_SAFE_ID_FB_STATE
+#define BSP_BXCAN_ID_FB_AUTOTUNE_LIMITS        AUTOTUNE_SAFE_ID_FB_LIMITS
+#define BSP_BXCAN_ID_FB_AUTOTUNE_WHEEL         AUTOTUNE_SAFE_ID_FB_WHEEL
+#define BSP_BXCAN_ID_FB_AUTOTUNE_PID_PI        AUTOTUNE_SAFE_ID_FB_PID_PI
+#define BSP_BXCAN_ID_FB_AUTOTUNE_PID_DO        AUTOTUNE_SAFE_ID_FB_PID_DO
+#define BSP_BXCAN_ID_FB_AUTOTUNE_SAFETY        AUTOTUNE_SAFE_ID_FB_SAFETY
+#define BSP_BXCAN_ID_FB_AUTOTUNE_COUNTERS      AUTOTUNE_SAFE_ID_FB_COUNTERS
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define BSP_BXCAN_PROTOCOL_VERSION             1U
+#define BSP_BXCAN_V1_BITRATE                   500000U
 
 #define BSP_BXCAN_ID_CMD_STEERING              0x120U
 #define BSP_BXCAN_ID_CMD_REAR_WHEELS           0x121U
@@ -97,7 +108,7 @@ extern "C" {
 #endif
 
 #ifndef BSP_BXCAN_MAX_STEERING_MRAD
-#define BSP_BXCAN_MAX_STEERING_MRAD            1000
+#define BSP_BXCAN_MAX_STEERING_MRAD            600
 #endif
 
 #ifndef BSP_BXCAN_MAX_REAR_VELOCITY_MMPS
@@ -173,6 +184,12 @@ void BSP_BXCAN_TestBuildCalibrationFrame(uint8_t data[8]);
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef AUTOTUNE_SAFE_PROFILE
+void BSP_BXCAN_SetLocalVelocityCommand(int16_t left_velocity_mmps,
+                                       int16_t right_velocity_mmps,
+                                       uint32_t now_ms);
 #endif
 
 #endif

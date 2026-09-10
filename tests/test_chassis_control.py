@@ -10,6 +10,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 COMMON_STUBS = textwrap.dedent(
     r"""
+    #include <stdio.h>
     #include <stdint.h>
     #include <stdlib.h>
 
@@ -197,8 +198,8 @@ class ChassisControlIntegrationTest(unittest.TestCase):
     def test_calibration_recommendation_drives_only_current_wheel(self):
         self.compile_and_run(COMMON_STUBS + r"""
             int main(void) {
-                const uint8_t steering[8] = {0x01, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-                const uint8_t wheels[8] = {0x01, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+                uint8_t steering[8] = {0x01, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+                uint8_t wheels[8] = {0x01, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
                 Wheel_Calibration_ServiceRequest_t request = {0};
                 BSP_BXCAN_Command_t stop = {0};
                 stop.mode_flags = BSP_BXCAN_MODE_STOP;
@@ -216,6 +217,11 @@ class ChassisControlIntegrationTest(unittest.TestCase):
 
                 Chassis_ControlProcess(10U);
                 for (uint32_t now = 20U; now <= 300U; now += 10U) {
+                    uint16_t seq = (uint16_t)(0x41U + (now / 10U));
+                    steering[1] = (uint8_t)seq;
+                    steering[2] = (uint8_t)(seq >> 8);
+                    wheels[1] = steering[1];
+                    wheels[2] = steering[2];
                     BSP_BXCAN_OnRxFrame(BSP_BXCAN_ID_CMD_STEERING, 8, 0, 0, steering, now);
                     BSP_BXCAN_OnRxFrame(BSP_BXCAN_ID_CMD_REAR_WHEELS, 8, 0, 0, wheels, now);
                     Chassis_ControlProcess(now);

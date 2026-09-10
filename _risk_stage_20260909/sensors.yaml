@@ -1,0 +1,29 @@
+/car/device_monitor:
+  ros__parameters:
+    health_publish_period_sec: 0.10
+    window_sec: 2.0
+    recovery_samples: 3
+    min_frequency_window_samples: 3
+    wheel_odom_timeout_sec: 0.25
+    imu_timeout_sec: 0.25
+    scan_timeout_sec: 0.50
+    hardware_status_timeout_sec: 0.50
+    hardware_feedback_timeout_sec: 0.25
+    future_stamp_tolerance_sec: 0.10
+    # IM900 default active-report rate is 30 Hz; retain margin for serial jitter.
+    min_imu_frequency_hz: 25.0
+    min_scan_frequency_hz: 5.0
+    expected_wheel_odom_frame: odom
+    expected_base_frame: base_link
+    expected_imu_frame: imu_link
+    expected_scan_frame: laser_link
+
+/car/imu_adapter:
+  ros__parameters:
+    input_topic: /vendor/imu
+    expected_frame_id: imu_link
+
+/car/lidar_adapter:
+  ros__parameters:
+    input_topic: /scan
+    expected_frame_id: laser_link

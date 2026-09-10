@@ -52,7 +52,7 @@ class PidExperimentTest(unittest.TestCase):
         runner = ExperimentRunner(FaultTransport(), initial)
 
         result = runner.run_candidate(
-            PIDGains(0.9, 0.9, 0.0),
+            PIDGains(0.3, 0.7, 0.0),
             [Scenario("fault_injection", 100.0, 0.2)],
         )
 

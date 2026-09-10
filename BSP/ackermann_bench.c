@@ -34,6 +34,8 @@ static void Ackermann_Bench_ResetResult(void)
         g_ackermann_bench_result.steering_mrad[i] = 0;
         g_ackermann_bench_result.left_target_mmps[i] = 0;
         g_ackermann_bench_result.right_target_mmps[i] = 0;
+        g_ackermann_bench_result.actual_left_mmps[i] = 0;
+        g_ackermann_bench_result.actual_right_mmps[i] = 0;
         g_ackermann_bench_result.applied_seq_after[i] = 0U;
         g_ackermann_bench_result.fault_after[i] = 0U;
         g_ackermann_bench_result.left_ccr_after[i] = 0U;
@@ -178,6 +180,8 @@ static void Ackermann_Bench_RunPhase(uint32_t phase,
     g_ackermann_bench_result.steering_mrad[phase] = steering_mrad;
     g_ackermann_bench_result.left_target_mmps[phase] = left_target;
     g_ackermann_bench_result.right_target_mmps[phase] = right_target;
+    g_ackermann_bench_result.actual_left_mmps[phase] = (int16_t)left_end.velocity_mmps;
+    g_ackermann_bench_result.actual_right_mmps[phase] = (int16_t)right_end.velocity_mmps;
     g_ackermann_bench_result.applied_seq_after[phase] = BSP_BXCAN_GetAppliedCommandSeq();
     g_ackermann_bench_result.fault_after[phase] = BSP_BXCAN_GetFault();
     g_ackermann_bench_result.left_ccr_after[phase] = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_1);

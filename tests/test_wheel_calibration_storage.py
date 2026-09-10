@@ -123,6 +123,30 @@ class WheelCalibrationStorageHostTest(unittest.TestCase):
             """
         )
 
+    def test_measured_encoder_parameters_round_trip_with_calibration_record(self):
+        self.compile_and_run(
+            COMMON
+            + r"""
+            int main(void)
+            {
+                CalibrationData_t data = make_data(4U, 210U);
+                WheelCalibrationParameters_t params = {1024U, 4U, 31500U, 33750U};
+                const WheelCalibrationParameters_t *loaded;
+
+                Wheel_Calibration_Storage_ResetForTest();
+                Wheel_Calibration_Init();
+                Wheel_Calibration_SetParameters(&params);
+                if (Wheel_Calibration_Storage_Save(&data) == 0U) return 1;
+                Wheel_Calibration_Init();
+                loaded = Wheel_Calibration_GetParameters();
+                if (loaded->encoder_ppr != params.encoder_ppr ||
+                    loaded->gear_ratio_x1000 != params.gear_ratio_x1000 ||
+                    loaded->wheel_radius_mm_x1000 != params.wheel_radius_mm_x1000) return 2;
+                return 0;
+            }
+            """
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

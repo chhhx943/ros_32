@@ -1,5 +1,9 @@
 #include "pid_tuning.h"
 
+#ifdef AUTOTUNE_SAFE_PROFILE
+#include "autotune_safe.h"
+#endif
+
 typedef struct {
     uint8_t present;
     uint16_t sequence;
@@ -64,9 +68,19 @@ static uint8_t PID_Tuning_IsSafe(uint8_t command_fresh,
 
 static uint8_t PID_Tuning_GainsValid(uint16_t kp, uint16_t ki, uint16_t kd)
 {
+#ifdef AUTOTUNE_SAFE_PROFILE
+    AutotuneSafe_Gains_t candidate;
+
+    candidate.kp = PID_Tuning_DecodeGain(kp);
+    candidate.ki = PID_Tuning_DecodeGain(ki);
+    candidate.kd = PID_Tuning_DecodeGain(kd);
+    return (AutotuneSafe_ValidateCandidate(&candidate) ==
+            AUTOTUNE_SAFE_GAIN_ACCEPTED);
+#else
     return (PID_Tuning_DecodeGain(kp) <= PID_TUNING_MAX_GAIN) &&
            (PID_Tuning_DecodeGain(ki) <= PID_TUNING_MAX_GAIN) &&
            (PID_Tuning_DecodeGain(kd) <= PID_TUNING_MAX_GAIN);
+#endif
 }
 
 void PID_Tuning_Init(void)
@@ -151,6 +165,9 @@ void PID_Tuning_OnFrame(uint16_t std_id,
     new_gains.kp = PID_Tuning_DecodeGain(g_pending.kp);
     new_gains.ki = PID_Tuning_DecodeGain(g_pending.ki);
     new_gains.kd = PID_Tuning_DecodeGain(PID_Tuning_ReadU16LE(&data[4]));
+#ifdef AUTOTUNE_SAFE_PROFILE
+    AutotuneSafe_SetCandidate((const AutotuneSafe_Gains_t *)&new_gains);
+#endif
     if ((axis_mask & PID_TUNING_AXIS_LEFT) != 0U) {
         g_left_gains = new_gains;
     }
@@ -163,6 +180,26 @@ void PID_Tuning_OnFrame(uint16_t std_id,
 
 void PID_Tuning_GetGains(PID_Tuning_Gains_t *left, PID_Tuning_Gains_t *right)
 {
+#ifdef AUTOTUNE_SAFE_PROFILE
+    AutotuneSafe_Status_t status;
+    AutotuneSafe_Gains_t recovery;
+
+    AutotuneSafe_GetStatus(&status);
+    if (status.abort_flag != 0U) {
+        AutotuneSafe_GetRecoveryGains(&recovery);
+        if (left != 0) {
+            left->kp = recovery.kp;
+            left->ki = recovery.ki;
+            left->kd = recovery.kd;
+        }
+        if (right != 0) {
+            right->kp = recovery.kp;
+            right->ki = recovery.ki;
+            right->kd = recovery.kd;
+        }
+        return;
+    }
+#endif
     if (left != 0) {
         *left = g_left_gains;
     }

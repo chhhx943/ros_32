@@ -8,6 +8,7 @@
 static CalibrationData_t g_active_calibration;
 static CalibrationData_t g_pending_calibration;
 static uint8_t g_pending_valid;
+static WheelCalibrationParameters_t g_parameters = {500U, 4U, 28000U, 33250U};
 
 uint8_t Wheel_Calibration_IsDataValid(const CalibrationData_t *data)
 {
@@ -38,6 +39,7 @@ void Wheel_Calibration_Init(void)
     g_active_calibration = (CalibrationData_t){0};
     g_pending_calibration = (CalibrationData_t){0};
     g_pending_valid = 0U;
+    g_parameters = (WheelCalibrationParameters_t){500U, 4U, 28000U, 33250U};
 
 #ifdef CALIBRATION_BENCH_DEFAULTS
     g_active_calibration.valid = 1U;
@@ -56,6 +58,21 @@ void Wheel_Calibration_Init(void)
         }
     }
 #endif
+}
+
+const WheelCalibrationParameters_t *Wheel_Calibration_GetParameters(void)
+{
+    return &g_parameters;
+}
+
+void Wheel_Calibration_SetParameters(const WheelCalibrationParameters_t *parameters)
+{
+    if ((parameters != 0) && (parameters->encoder_ppr != 0U) &&
+        (parameters->quadrature_factor != 0U) &&
+        (parameters->gear_ratio_x1000 != 0U) &&
+        (parameters->wheel_radius_mm_x1000 != 0U)) {
+        g_parameters = *parameters;
+    }
 }
 
 uint8_t Wheel_Calibration_IsValid(void)

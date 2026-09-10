@@ -12,6 +12,7 @@ void Servo_Init(void);
 void Servo_SetNeutral(void);
 void Servo_SetPulseUs(uint16_t pulse_us);
 void Servo_SetAngleMrad(int16_t angle_mrad);
+uint8_t Servo_SetAngleMradChecked(int16_t angle_mrad);
 uint16_t Servo_GetPulseUs(void);
 
 #endif

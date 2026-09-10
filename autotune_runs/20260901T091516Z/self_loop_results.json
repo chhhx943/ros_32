@@ -1,0 +1,208 @@
+{
+  "simulated_motion": true,
+  "experiments": [
+    {
+      "candidate_pid": {
+        "kp": 0.2,
+        "ki": 0.6,
+        "kd": 0.0
+      },
+      "metrics": {
+        "rise_time_s": null,
+        "overshoot_percent": 0.0,
+        "settling_time_s": null,
+        "steady_state_error": 41.05099989719321,
+        "iae": 41.818294238463416,
+        "ise": 2264.9274056569297,
+        "oscillation": 0
+      },
+      "score": 716.7190339817021,
+      "aborted": false,
+      "abort_reason": null,
+      "scenario_scores": {
+        "self_loop_25": 74.94646214992143,
+        "self_loop_50": 136.3491533514188,
+        "self_loop_75": 210.64189638816805,
+        "self_loop_100": 294.78152209219377
+      },
+      "sample_count": 100,
+      "level": 1,
+      "requested_target": 100.0,
+      "effective_target": 100.0,
+      "pwm_limit": 150.0,
+      "session_id": 1,
+      "experiment_id": 4,
+      "max_pwm": 23.496821993176567,
+      "max_speed": 33.53274867878952,
+      "saturation_time": 0.0,
+      "stall_time": 0.0,
+      "oscillation_count": 0,
+      "speed_limit_hit": false,
+      "safety_state": "COMPLETE"
+    },
+    {
+      "candidate_pid": {
+        "kp": 0.15000000000000002,
+        "ki": 0.6,
+        "kd": 0.0
+      },
+      "metrics": {
+        "rise_time_s": null,
+        "overshoot_percent": 0.0,
+        "settling_time_s": null,
+        "steady_state_error": 44.012506349974565,
+        "iae": 43.72064601835248,
+        "ise": 2476.3456950675272,
+        "oscillation": 0
+      },
+      "score": 763.4552663249017,
+      "aborted": false,
+      "abort_reason": null,
+      "scenario_scores": {
+        "self_loop_25": 78.36958413299915,
+        "self_loop_50": 144.64890225421976,
+        "self_loop_75": 224.86251353308,
+        "self_loop_100": 315.57426640460284
+      },
+      "sample_count": 100,
+      "level": 1,
+      "requested_target": 100.0,
+      "effective_target": 100.0,
+      "pwm_limit": 150.0,
+      "session_id": 1,
+      "experiment_id": 8,
+      "max_pwm": 21.234711669196713,
+      "max_speed": 28.802740954875077,
+      "saturation_time": 0.0,
+      "stall_time": 0.0,
+      "oscillation_count": 0,
+      "speed_limit_hit": false,
+      "safety_state": "COMPLETE"
+    },
+    {
+      "candidate_pid": {
+        "kp": 0.25,
+        "ki": 0.6,
+        "kd": 0.0
+      },
+      "metrics": {
+        "rise_time_s": null,
+        "overshoot_percent": 0.0,
+        "settling_time_s": null,
+        "steady_state_error": 38.378861014800066,
+        "iae": 40.03986508090971,
+        "ise": 2076.6417279814673,
+        "oscillation": 0
+      },
+      "score": 674.734925997457,
+      "aborted": false,
+      "abort_reason": null,
+      "scenario_scores": {
+        "self_loop_25": 71.88524227943331,
+        "self_loop_50": 128.91531201027982,
+        "self_loop_75": 197.87368144067594,
+        "self_loop_100": 276.0606902670679
+      },
+      "sample_count": 100,
+      "level": 1,
+      "requested_target": 100.0,
+      "effective_target": 100.0,
+      "pwm_limit": 150.0,
+      "session_id": 1,
+      "experiment_id": 12,
+      "max_pwm": 25.420615337266515,
+      "max_speed": 37.81260428122545,
+      "saturation_time": 0.0,
+      "stall_time": 0.0,
+      "oscillation_count": 0,
+      "speed_limit_hit": false,
+      "safety_state": "COMPLETE"
+    },
+    {
+      "candidate_pid": {
+        "kp": 0.2,
+        "ki": 0.44999999999999996,
+        "kd": 0.0
+      },
+      "metrics": {
+        "rise_time_s": null,
+        "overshoot_percent": 0.0,
+        "settling_time_s": null,
+        "steady_state_error": 42.441091406927384,
+        "iae": 42.339682125985675,
+        "ise": 2319.7020868666114,
+        "oscillation": 0
+      },
+      "score": 733.8386220680659,
+      "aborted": false,
+      "abort_reason": null,
+      "scenario_scores": {
+        "self_loop_25": 76.53019776080916,
+        "self_loop_50": 139.71421199711511,
+        "self_loop_75": 215.834171430239,
+        "self_loop_100": 301.76004087990265
+      },
+      "sample_count": 100,
+      "level": 1,
+      "requested_target": 100.0,
+      "effective_target": 100.0,
+      "pwm_limit": 150.0,
+      "session_id": 1,
+      "experiment_id": 16,
+      "max_pwm": 21.473666172218316,
+      "max_speed": 31.410587347812157,
+      "saturation_time": 0.0,
+      "stall_time": 0.0,
+      "oscillation_count": 0,
+      "speed_limit_hit": false,
+      "safety_state": "COMPLETE"
+    },
+    {
+      "candidate_pid": {
+        "kp": 0.2,
+        "ki": 0.75,
+        "kd": 0.0
+      },
+      "metrics": {
+        "rise_time_s": null,
+        "overshoot_percent": 0.0,
+        "settling_time_s": null,
+        "steady_state_error": 39.681144973572685,
+        "iae": 41.30153128186116,
+        "ise": 2211.6660722763213,
+        "oscillation": 0
+      },
+      "score": 699.9172982980748,
+      "aborted": false,
+      "abort_reason": null,
+      "scenario_scores": {
+        "self_loop_25": 73.3931257965837,
+        "self_loop_50": 133.04877772323232,
+        "self_loop_75": 205.54675151119272,
+        "self_loop_100": 287.92864326706604
+      },
+      "sample_count": 100,
+      "level": 1,
+      "requested_target": 100.0,
+      "effective_target": 100.0,
+      "pwm_limit": 150.0,
+      "session_id": 1,
+      "experiment_id": 20,
+      "max_pwm": 25.474531359815536,
+      "max_speed": 35.62557732543817,
+      "saturation_time": 0.0,
+      "stall_time": 0.0,
+      "oscillation_count": 0,
+      "speed_limit_hit": false,
+      "safety_state": "COMPLETE"
+    }
+  ],
+  "best_pid": {
+    "kp": 0.25,
+    "ki": 0.6,
+    "kd": 0.0
+  },
+  "best_score": 674.734925997457,
+  "simulated_stop_confirmed": true,
+  "mcu_safety_proven": false
+}

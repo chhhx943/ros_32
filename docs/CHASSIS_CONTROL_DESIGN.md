@@ -9,6 +9,11 @@ TIM4 steering-servo PWM, TIM1/TIM2 encoders, TIM6 scheduling, and CAN V1.
 
 This document is the normative architecture and behavior specification for the chassis-control implementation. Byte layouts remain normative in [CAN_PROTOCOL.md](CAN_PROTOCOL.md). Where older implementation notes conflict with this document, this document defines the intended target architecture.
 
+CAN V1 physical layer: Classic CAN 2.0A, 11-bit standard identifiers, 8-byte
+data frames, and 500 kbit/s on CAN1/PB8-PB9. The command pair, 10 ms pairing
+window, 100 ms MCU watchdog, feedback period, Safety, and E-stop semantics are
+unchanged.
+
 ## 1. Fixed hardware and units
 
 | Item | Frozen assignment |
@@ -20,7 +25,7 @@ This document is the normative architecture and behavior specification for the c
 | Right motor direction | PB14/PB15 |
 | Left encoder | PE9/PE11 / TIM1 encoder mode |
 | Right encoder | PA0/PA1 / TIM2 encoder mode |
-| Control timebase | TIM6, 100 Hz monotonically increasing tick |
+| Control timebase | TIM6 1 kHz event source; bounded 100 Hz control consumption |
 | Motor | MG513xP28, 12 V, nominal output approximately 300 rpm |
 
 Encoder constants have one meaning only:
@@ -103,7 +108,7 @@ CAN feedback transports only the fault currently selected by `safety_manager`; l
 
 ## 5. Scheduler, encoder, and PI
 
-TIM6 ISR increments only a monotonic tick. The main loop observes elapsed ticks, samples and controls at most once, and uses measured elapsed time as `dt`. It must never replay missed iterations.
+TIM6 ISR only increments a bounded event counter. The main loop consumes events, samples and controls at most once per 10 ms, and uses measured elapsed time as `dt`; a saturated event counter latches `control_overrun` and prevents backlog-sized PID integration.
 
 - `elapsed_tick > 1`: record overrun evidence and run exactly once with real `dt`.
 - `dt > CONTROL_MAX_DT`: latch `CONTROL_OVERRUN`.
@@ -127,7 +132,7 @@ PRECHECK
  -> VALIDATE -> COMPLETE
 ```
 
-`LEFT_SETTLE` and `RIGHT_SETTLE` issue zero-torque recommendations and wait for the tested wheel to satisfy trusted-still hold before the following reverse stage. Positive and reverse measurements must be based only on trusted encoder samples. The state machine validates count response and command-relative direction only; it cannot establish separate A/B channel health and does not implement high-speed edge diagnostics.
+`LEFT_SETTLE` and `RIGHT_SETTLE` issue zero-torque recommendations and wait for the tested wheel to satisfy trusted-still hold before the following reverse stage. Forward and reverse measurements must be based only on trusted encoder samples. The state machine derives each encoder polarity from the forward response, validates the reverse response relative to that polarity, and does not establish separate A/B channel health or high-speed edge diagnostics.
 
 Only explicitly proven validation failures latch `CALIBRATION_FAILED`. Safety/operator abort, CAN timeout, and encoder-invalid safety preemption discard pending data and return through `CALIBRATION_REQUIRED` after their normal recovery conditions.
 
@@ -168,7 +173,7 @@ An invalid sample immediately breaks stillness hold and contributes neither moti
 | `CAL_WHEEL_TIMEOUT_MS` | 6 000 ms |
 | `CAL_TOTAL_TIMEOUT_MS` | 20 000 ms |
 | `CAL_PWM_MAX_PERMILLE` | 250 |
-| `CAL_PWM_START_PERMILLE` | 100 |
+| `CAL_PWM_START_PERMILLE` | 50 |
 | `CAL_PWM_STEP_PERMILLE` | 25 |
 | `CAL_PWM_STEP_HOLD_MS` | 200 ms |
 | `CAL_MAX_NONZERO_STAGE_MS` | 1 500 ms |
@@ -203,10 +208,16 @@ typedef struct {
 } CalibrationData;
 ```
 
-The state machine writes an independent `pending` structure only. Once both wheels pass all tests and cross-wheel validation, `active = pending` is performed once inside a critical section. No field-by-field or single-wheel update is allowed. Existing active data is preserved during recalibration and on every abort or failure; it does not authorize DRIVE while calibration is active. Flash persistence is intentionally excluded; the structure reserves versioning for future CRC, dual-slot, valid-marker, and power-loss recovery support.
+The state machine writes an independent `pending` structure only. During each motion stage it ramps PWM in bounded steps and records the first trusted encoder response as that wheel's minimum-start PWM. Once both wheels pass all tests and cross-wheel validation, `active = pending` is performed once inside a critical section. No field-by-field or single-wheel update is allowed. Existing active data is preserved during recalibration and on every abort or failure; it does not authorize DRIVE while calibration is active.
 
-Validated calibration is persisted in two independent Flash sectors (`0x080C0000` / sector 10 and `0x080E0000` / sector 11). Each 32-byte record contains an explicit serialized payload, generation, CRC32, and a commit marker programmed last. Startup selects the newest record whose format, CRC, commit marker, and calibration payload are all valid; an incomplete or corrupt newest record falls back to the other slot. `CommitPending` writes the inactive slot before replacing the active RAM snapshot, so a failed write preserves the prior active calibration.
+Validated calibration is persisted in two independent Flash sectors (`0x08040000` / sector 6 and `0x08060000` / sector 7). Each 48-byte record contains an explicit serialized payload, drivetrain-parameter fields, generation, CRC32, and a commit marker programmed last. Startup selects the newest record whose format, CRC, commit marker, and calibration payload are all valid; an incomplete or corrupt newest record falls back to the other slot. `CommitPending` writes the inactive slot before replacing the active RAM snapshot, so a failed write preserves the prior active calibration. The current service derives polarity and minimum-start PWM; PPR, quadrature factor, gear ratio, and wheel radius remain nominal until a measured drivetrain procedure supplies them.
 
 ## 8. Required verification
 
 Implementation and codec tests must cover: duplicate and wraparound service sequences; Query; busy Start; Cancel and restart gate; one-sample stillness; invalid sample interruption and escalation; settle-before-reverse; CAN timeout; ESTOP/FAULT preemption; each single-wheel failure; one wheel success/other failure; pending discard; atomic commit visibility; preservation of old active calibration; and validation-timeout versus sensor-invalid-timeout classification.
+# 2026-09 engineering closeout notes
+
+- CAN1 uses the board's PB8 (RX) / PB9 (TX) remap; PA11/PA12 are reserved for USB FS.
+- TIM6 is the 1 kHz event source. The main context consumes bounded events, runs the 10 ms control task and 20 ms feedback pump, and latches `control_overrun` instead of integrating PID with a backlog-sized `dt`.
+- TIM3 is PWM-only (20 kHz); no Base IRQ is enabled. TB6612 reversals force PWM=0, COAST dead-time, direction change, then PWM restore.
+- Calibration records use dual power-fail-safe slots in sectors 6/7 (`0x08040000` and `0x08060000`), with the application limited to 256 KiB. Polarity and first-response minimum-start PWM are derived by the service; parameter fields are persisted and consumed by encoder conversion, while PPR/gear/radius still require measured input.

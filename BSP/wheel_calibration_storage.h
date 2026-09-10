@@ -7,8 +7,11 @@
 extern "C" {
 #endif
 
-#define WHEEL_CALIBRATION_STORAGE_SLOT0_ADDRESS 0x080C0000UL
-#define WHEEL_CALIBRATION_STORAGE_SLOT1_ADDRESS 0x080E0000UL
+/* STM32F407VET6 has 512 KiB Flash ending at 0x08080000.  The application is
+   linked to 0x08000000..0x08040000; sectors 6 and 7 are reserved exclusively
+   for calibration records. */
+#define WHEEL_CALIBRATION_STORAGE_SLOT0_ADDRESS 0x08040000UL
+#define WHEEL_CALIBRATION_STORAGE_SLOT1_ADDRESS 0x08060000UL
 #define WHEEL_CALIBRATION_STORAGE_SLOT_COUNT 2U
 
 uint8_t Wheel_Calibration_Storage_Load(CalibrationData_t *out);

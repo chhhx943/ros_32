@@ -28,6 +28,7 @@ class AckermannBenchStructureTest(unittest.TestCase):
             "ON",
         )
         self.assertIn("AckermannBench", build)
+        self.assertIn("CALIBRATION_BENCH_DEFAULTS", read_rel("CMakeLists.txt"))
 
     def test_bench_vectors_match_conservative_host_ackermann_outputs(self):
         header = read_rel("BSP/ackermann_bench.h")

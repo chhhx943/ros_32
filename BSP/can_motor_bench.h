@@ -32,7 +32,7 @@ extern "C" {
 /* Loopback self-injection shares the 3 TX mailboxes with the production
  * feedback pump, which burst-fills them right before each command group.
  * A frame waits at most this long for a free mailbox (one feedback burst
- * needs ~0.7 ms at 1 Mbit/s, so 5 ms is a generous bound). */
+ * needs ~1.4 ms at 500 kbit/s, so 5 ms is a generous bound). */
 #define CAN_MOTOR_BENCH_TX_WAIT_MS          5U
 
 typedef enum {
@@ -61,6 +61,28 @@ typedef struct {
     uint32_t calibration_exit_reason;
     int32_t calibration_left_delta;
     int32_t calibration_right_delta;
+    int16_t calibration_left_forward_command_pwm;
+    uint16_t calibration_left_forward_pwm_permille;
+    uint32_t calibration_left_forward_ccr1;
+    uint32_t calibration_left_forward_tim1_raw_start;
+    uint32_t calibration_left_forward_tim1_raw_end;
+    int32_t calibration_left_forward_tim1_raw_delta;
+    uint8_t calibration_left_forward_tb6612_pins;
+    uint8_t calibration_left_forward_captured;
+    int32_t calibration_left_forward_encoder_accum_start;
+    int32_t calibration_left_forward_encoder_accum_end;
+    int32_t calibration_left_forward_encoder_accum_delta;
+    int32_t calibration_left_forward_last_sample_raw_delta;
+    int32_t calibration_left_forward_last_sample_applied_delta;
+    uint32_t calibration_left_forward_sample_count;
+    uint32_t calibration_left_forward_untrusted_samples;
+    uint32_t calibration_left_forward_last_dt_ms;
+    uint8_t calibration_left_forward_last_sample_trusted;
+    int32_t calibration_left_forward_service_start_counts;
+    int32_t calibration_left_forward_service_delta_counts;
+    uint16_t calibration_left_forward_service_pwm_permille;
+    uint8_t calibration_left_forward_service_sample_trusted;
+    uint8_t calibration_left_forward_service_response_detected;
 } CAN_Motor_BenchResult_t;
 
 extern CAN_Motor_BenchResult_t g_can_motor_bench_result;

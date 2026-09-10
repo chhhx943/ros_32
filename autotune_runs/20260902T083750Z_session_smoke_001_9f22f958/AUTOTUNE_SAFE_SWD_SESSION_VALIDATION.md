@@ -1,0 +1,184 @@
+# AUTOTUNE_SAFE_SWD_SESSION_VALIDATION
+
+- Scope: ST-LINK/SWD session orchestration only
+- Terminal states: `COMPLETE_LATCHED` / `ABORT_LATCHED`
+- Generation ordering: uint32 wrap-aware delta
+- Snapshot rule: odd/changing sequence or transient CRC mismatch retries
+- Result rule: final magic is committed last; magic=0 is incomplete
+- Failure category: `ORCHESTRATION_FAILURE`
+- Failure code: `VERIFY_FAIL`
+
+```json
+{
+  "profile": "LOCAL_SESSION_SMOKE",
+  "smoke_elf": "D:\\STM32cubemx\\Project\\ros\\build\\LocalSessionSmoke\\ros.elf",
+  "debug_elf": "D:\\STM32cubemx\\Project\\ros\\build\\Debug\\ros.elf",
+  "serial": "3E3703013212354D434B4E00",
+  "gdb_host": "localhost",
+  "gdb_port": 61234,
+  "poll_ms": 50,
+  "events": [
+    "build",
+    "programmer_exit"
+  ],
+  "boot_identity": null,
+  "armed_status": null,
+  "running_status": null,
+  "terminal_status": null,
+  "result": null,
+  "ring": null,
+  "debug_restore": {
+    "status": "FAIL",
+    "attempts": [
+      {
+        "attempt": 1,
+        "record": {
+          "argv": [
+            "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+            "-c",
+            "port=SWD sn=3E3703013212354D434B4E00",
+            "freq=4000",
+            "-w",
+            "D:\\STM32cubemx\\Project\\ros\\build\\Debug\\ros.elf",
+            "-v",
+            "-rst",
+            "-run"
+          ],
+          "returncode": 1,
+          "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n",
+          "stderr": "",
+          "started_at": "2026-09-02T08:37:34.440653+00:00",
+          "exited_at": "2026-09-02T08:37:39.502906+00:00"
+        }
+      },
+      {
+        "attempt": 2,
+        "record": {
+          "argv": [
+            "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+            "-c",
+            "port=SWD sn=3E3703013212354D434B4E00",
+            "freq=4000",
+            "-w",
+            "D:\\STM32cubemx\\Project\\ros\\build\\Debug\\ros.elf",
+            "-v",
+            "-rst",
+            "-run"
+          ],
+          "returncode": 1,
+          "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n",
+          "stderr": "",
+          "started_at": "2026-09-02T08:37:40.003566+00:00",
+          "exited_at": "2026-09-02T08:37:45.068876+00:00"
+        }
+      },
+      {
+        "attempt": 3,
+        "record": {
+          "argv": [
+            "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+            "-c",
+            "port=SWD sn=3E3703013212354D434B4E00",
+            "freq=4000",
+            "-w",
+            "D:\\STM32cubemx\\Project\\ros\\build\\Debug\\ros.elf",
+            "-v",
+            "-rst",
+            "-run"
+          ],
+          "returncode": 1,
+          "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n",
+          "stderr": "",
+          "started_at": "2026-09-02T08:37:45.568925+00:00",
+          "exited_at": "2026-09-02T08:37:50.629984+00:00"
+        }
+      }
+    ]
+  },
+  "smoke_elf_sha256": "834dada27e903e3cf424c0a53fc2e4cb78cd8b743fa28befcc4c5600b481607e",
+  "debug_elf_sha256": "6b27bf3e3c6db09862eb7ee8f1c81c20a34b1571d431edc8b96dc0d46e5afe25",
+  "outcome": {
+    "code": "VERIFY_FAIL",
+    "category": "ORCHESTRATION_FAILURE",
+    "detail": "VERIFY_FAIL | restore=RESTORE_DEBUG_FAIL"
+  },
+  "commands": [
+    {
+      "argv": [
+        "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+        "-c",
+        "port=SWD sn=3E3703013212354D434B4E00",
+        "freq=4000",
+        "-w",
+        "D:\\STM32cubemx\\Project\\ros\\build\\LocalSessionSmoke\\ros.elf",
+        "-v",
+        "-rst",
+        "-run"
+      ],
+      "returncode": 1,
+      "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n",
+      "stderr": "",
+      "started_at": "2026-09-02T08:37:29.367156+00:00",
+      "exited_at": "2026-09-02T08:37:34.440653+00:00"
+    },
+    {
+      "argv": [
+        "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+        "-c",
+        "port=SWD sn=3E3703013212354D434B4E00",
+        "freq=4000",
+        "-w",
+        "D:\\STM32cubemx\\Project\\ros\\build\\Debug\\ros.elf",
+        "-v",
+        "-rst",
+        "-run"
+      ],
+      "returncode": 1,
+      "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n",
+      "stderr": "",
+      "started_at": "2026-09-02T08:37:34.440653+00:00",
+      "exited_at": "2026-09-02T08:37:39.502906+00:00"
+    },
+    {
+      "argv": [
+        "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+        "-c",
+        "port=SWD sn=3E3703013212354D434B4E00",
+        "freq=4000",
+        "-w",
+        "D:\\STM32cubemx\\Project\\ros\\build\\Debug\\ros.elf",
+        "-v",
+        "-rst",
+        "-run"
+      ],
+      "returncode": 1,
+      "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n",
+      "stderr": "",
+      "started_at": "2026-09-02T08:37:40.003566+00:00",
+      "exited_at": "2026-09-02T08:37:45.068876+00:00"
+    },
+    {
+      "argv": [
+        "D:\\stm32cubeclt\\STM32CubeCLT_1.19.0\\STM32CubeProgrammer\\bin\\STM32_Programmer_CLI.exe",
+        "-c",
+        "port=SWD sn=3E3703013212354D434B4E00",
+        "freq=4000",
+        "-w",
+        "D:\\STM32cubemx\\Project\\ros\\build\\Debug\\ros.elf",
+        "-v",
+        "-rst",
+        "-run"
+      ],
+      "returncode": 1,
+      "stdout": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.20.0                  \n      -------------------------------------------------------------------\n\nST-LINK error (DEV_USB_COMM_ERR)\n",
+      "stderr": "",
+      "started_at": "2026-09-02T08:37:45.568925+00:00",
+      "exited_at": "2026-09-02T08:37:50.629984+00:00"
+    }
+  ],
+  "created_at": "2026-09-02T08:37:50.629984+00:00"
+}
+```
+
+No motor, encoder, or PID conclusion is permitted from this artifact.
+The result is not actuator evidence until the complete session contract is proven.

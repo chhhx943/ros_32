@@ -89,10 +89,58 @@
             }
         },
         {
+            "name": "H4Characterization",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/H4Characterization",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "MOTOR_BENCH_TEST": "OFF",
+                "BSP_BXCAN_RUN_LOOPBACK_SELF_TEST": "OFF",
+                "CAN_MOTOR_BENCH_TEST": "OFF",
+                "CALIBRATION_BENCH_TEST": "OFF",
+                "STEERING_BENCH_TEST": "OFF",
+                "ACKERMANN_BENCH_TEST": "OFF",
+                "H4_CHARACTERIZATION_TEST": "ON"
+            }
+        },
+        {
             "name": "Release",
             "inherits": "default",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "AutotuneSafe",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/AutotuneSafe",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "AUTOTUNE_SAFE_PROFILE": "ON",
+                "MOTOR_BENCH_TEST": "OFF",
+                "BSP_BXCAN_RUN_LOOPBACK_SELF_TEST": "OFF",
+                "CAN_MOTOR_BENCH_TEST": "OFF",
+                "CALIBRATION_BENCH_TEST": "OFF",
+                "STEERING_BENCH_TEST": "OFF",
+                "ACKERMANN_BENCH_TEST": "OFF",
+                "H4_CHARACTERIZATION_TEST": "OFF"
+            }
+        },
+        {
+            "name": "LocalSessionSmoke",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/LocalSessionSmoke",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "LOCAL_SESSION_SMOKE": "ON",
+                "AUTOTUNE_SAFE_PROFILE": "OFF",
+                "MOTOR_BENCH_TEST": "OFF",
+                "BSP_BXCAN_RUN_LOOPBACK_SELF_TEST": "OFF",
+                "CAN_MOTOR_BENCH_TEST": "OFF",
+                "CALIBRATION_BENCH_TEST": "OFF",
+                "STEERING_BENCH_TEST": "OFF",
+                "ACKERMANN_BENCH_TEST": "OFF",
+                "H4_CHARACTERIZATION_TEST": "OFF"
             }
         }
     ],
@@ -122,8 +170,20 @@
             "configurePreset": "AckermannBench"
         },
         {
+            "name": "H4Characterization",
+            "configurePreset": "H4Characterization"
+        },
+        {
             "name": "Release",
             "configurePreset": "Release"
+        },
+        {
+            "name": "AutotuneSafe",
+            "configurePreset": "AutotuneSafe"
+        },
+        {
+            "name": "LocalSessionSmoke",
+            "configurePreset": "LocalSessionSmoke"
         }
     ]
 }

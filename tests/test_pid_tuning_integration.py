@@ -36,6 +36,13 @@ class PidTuningIntegrationTest(unittest.TestCase):
         self.assertIn("left_control_output", control)
         self.assertIn("right_control_output", control)
 
+    def test_autotune_profile_routes_runtime_gains_through_mcu_validator(self):
+        tuning = read_rel("BSP/pid_tuning.c")
+        self.assertIn("autotune_safe.h", tuning)
+        self.assertIn("AutotuneSafe_ValidateCandidate", tuning)
+        self.assertIn("AutotuneSafe_SetCandidate", tuning)
+        self.assertIn("AutotuneSafe_GetRecoveryGains", tuning)
+
 
 if __name__ == "__main__":
     unittest.main()

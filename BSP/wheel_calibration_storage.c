@@ -4,9 +4,9 @@
 
 #define WHEEL_CALIBRATION_STORAGE_MAGIC 0x43414C31UL
 #define WHEEL_CALIBRATION_STORAGE_FORMAT_VERSION 1U
-#define WHEEL_CALIBRATION_STORAGE_PAYLOAD_SIZE 12U
+#define WHEEL_CALIBRATION_STORAGE_PAYLOAD_SIZE 28U
 #define WHEEL_CALIBRATION_STORAGE_COMMIT_MARKER 0xC0A17ED1UL
-#define WHEEL_CALIBRATION_STORAGE_RECORD_WORDS 8U
+#define WHEEL_CALIBRATION_STORAGE_RECORD_WORDS 12U
 
 static uint32_t Wheel_Calibration_Storage_CrcUpdate(uint32_t crc, uint8_t value)
 {
@@ -29,7 +29,7 @@ static uint32_t Wheel_Calibration_Storage_CrcWords(const uint32_t *words)
     uint32_t word_index;
     uint32_t byte_index;
 
-    for (word_index = 1U; word_index <= 5U; ++word_index) {
+    for (word_index = 1U; word_index <= 9U; ++word_index) {
         for (byte_index = 0U; byte_index < 4U; ++byte_index) {
             crc = Wheel_Calibration_Storage_CrcUpdate(
                 crc,
@@ -54,8 +54,15 @@ static void Wheel_Calibration_Storage_Encode(const CalibrationData_t *data,
                ((uint32_t)data->right_min_start_pwm_permille << 16);
     words[5] = (uint32_t)data->version |
                ((uint32_t)data->reserved << 16);
-    words[6] = Wheel_Calibration_Storage_CrcWords(words);
-    words[7] = WHEEL_CALIBRATION_STORAGE_COMMIT_MARKER;
+    {
+        const WheelCalibrationParameters_t *parameters = Wheel_Calibration_GetParameters();
+        words[6] = parameters->encoder_ppr;
+        words[7] = parameters->quadrature_factor;
+        words[8] = parameters->gear_ratio_x1000;
+        words[9] = parameters->wheel_radius_mm_x1000;
+    }
+    words[10] = Wheel_Calibration_Storage_CrcWords(words);
+    words[11] = WHEEL_CALIBRATION_STORAGE_COMMIT_MARKER;
 }
 
 static uint8_t Wheel_Calibration_Storage_Decode(const uint32_t *words,
@@ -68,8 +75,8 @@ static uint8_t Wheel_Calibration_Storage_Decode(const uint32_t *words,
     if ((words[0] != WHEEL_CALIBRATION_STORAGE_MAGIC) ||
         ((words[1] & 0xFFFFUL) != WHEEL_CALIBRATION_STORAGE_FORMAT_VERSION) ||
         ((words[1] >> 16) != WHEEL_CALIBRATION_STORAGE_PAYLOAD_SIZE) ||
-        (words[6] != Wheel_Calibration_Storage_CrcWords(words)) ||
-        (words[7] != WHEEL_CALIBRATION_STORAGE_COMMIT_MARKER)) {
+        (words[10] != Wheel_Calibration_Storage_CrcWords(words)) ||
+        (words[11] != WHEEL_CALIBRATION_STORAGE_COMMIT_MARKER)) {
         return 0U;
     }
 
@@ -80,6 +87,8 @@ static uint8_t Wheel_Calibration_Storage_Decode(const uint32_t *words,
     data->right_min_start_pwm_permille = (uint16_t)((words[4] >> 16) & 0xFFFFUL);
     data->version = (uint16_t)(words[5] & 0xFFFFUL);
     data->reserved = (uint16_t)((words[5] >> 16) & 0xFFFFUL);
+    Wheel_Calibration_SetParameters(&(WheelCalibrationParameters_t){
+        words[6], words[7], words[8], words[9]});
     *generation = words[2];
     return Wheel_Calibration_IsDataValid(data);
 }
@@ -121,14 +130,14 @@ void Wheel_Calibration_Storage_ResetForTest(void)
 void Wheel_Calibration_Storage_CorruptSlotForTest(uint8_t slot)
 {
     if (slot < WHEEL_CALIBRATION_STORAGE_SLOT_COUNT) {
-        g_host_slots[slot][6] ^= 1UL;
+        g_host_slots[slot][10] ^= 1UL;
     }
 }
 
 void Wheel_Calibration_Storage_DropCommitForTest(uint8_t slot)
 {
     if (slot < WHEEL_CALIBRATION_STORAGE_SLOT_COUNT) {
-        g_host_slots[slot][7] = 0xFFFFFFFFUL;
+        g_host_slots[slot][11] = 0xFFFFFFFFUL;
     }
 }
 
@@ -158,8 +167,8 @@ static uint8_t Wheel_Calibration_Storage_ProgramSlot(uint8_t slot,
         WHEEL_CALIBRATION_STORAGE_SLOT1_ADDRESS
     };
     const uint32_t sectors[WHEEL_CALIBRATION_STORAGE_SLOT_COUNT] = {
-        FLASH_SECTOR_10,
-        FLASH_SECTOR_11
+        FLASH_SECTOR_6,
+        FLASH_SECTOR_7
     };
 
     erase.TypeErase = FLASH_TYPEERASE_SECTORS;
@@ -176,7 +185,7 @@ static uint8_t Wheel_Calibration_Storage_ProgramSlot(uint8_t slot,
     status = HAL_FLASHEx_Erase(&erase, &sector_error);
     if (status == HAL_OK) {
         address = addresses[slot];
-        for (word = 0U; word < 7U; ++word) {
+        for (word = 0U; word < 11U; ++word) {
             status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,
                                        address + (word * sizeof(uint32_t)),
                                        words[word]);
@@ -186,12 +195,15 @@ static uint8_t Wheel_Calibration_Storage_ProgramSlot(uint8_t slot,
         }
         if (status == HAL_OK) {
             status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,
-                                       address + (7U * sizeof(uint32_t)),
-                                       words[7]);
+                                       address + (11U * sizeof(uint32_t)),
+                                       words[11]);
         }
     }
     (void)HAL_FLASH_Lock();
-    return (status == HAL_OK) && (sector_error == 0U);
+    /* HAL_FLASHEx_Erase() reports a successful erase with 0xFFFFFFFF in
+       SectorError; zero is a sector number and is therefore the first
+       possible failure value, not the success value. */
+    return (status == HAL_OK) && (sector_error == 0xFFFFFFFFUL);
 }
 
 #endif

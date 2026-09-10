@@ -1,0 +1,360 @@
+=thread-group-added,id="i1"
+~"Reading symbols from D:\\STM32cubemx\\Project\\ros\\build\\LocalSessionSmoke\\ros.elf...\n"
+(gdb)
+ 
+1^done
+(gdb)
+ 
+=thread-group-started,id="i1",pid="42000"
+=thread-created,id="1",group-id="i1"
+~"0x08001bca in AutotuneSession_Process (now_ms=2096) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:516\n"
+~"516\t    uint32_t state = g_autotune_session_status.state;\n"
+*stopped,frame={addr="0x08001bca",func="AutotuneSession_Process",args=[{name="now_ms",value="2096"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="516",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+2^connected
+(gdb)
+ 
+3^running
+*running,thread-id="all"
+(gdb)
+ 
+4^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x08001bd2 in AutotuneSession_Process (now_ms=2102) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:518\n"
+~"518\t    if (TakeRequest(&request) != 0U) {\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x08001bd2",func="AutotuneSession_Process",args=[{name="now_ms",value="2102"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="518",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+5^done,memory=[{begin="0x2000002c",offset="0x00000000",end="0x20000030",contents="04000000"}]
+(gdb)
+ 
+6^done,memory=[{begin="0x2000002c",offset="0x00000000",end="0x20000058",contents="040000004942544101002c0001000000b4b64d3e08000000000000000200000001000000080000009f5e1f0d"}]
+(gdb)
+ 
+7^done,memory=[{begin="0x2000002c",offset="0x00000000",end="0x20000030",contents="04000000"}]
+(gdb)
+ 
+8^running
+*running,thread-id="all"
+(gdb)
+ 
+9^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"AutotuneSession_LocalSmokeProcess (now_ms=2112) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_local_smoke.c:8\n"
+~"8\t    AutotuneSession_Process(now_ms);\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x08001c04",func="AutotuneSession_LocalSmokeProcess",args=[{name="now_ms",value="2112"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_local_smoke.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_local_smoke.c",line="8",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+10^done
+(gdb)
+ 
+11^done
+(gdb)
+ 
+12^running
+*running,thread-id="all"
+(gdb)
+ 
+13^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"RequestValid (request=0x2001ff58) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:191\n"
+~"191\t           (request->request_id != 0U) &&\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x080013cc",func="RequestValid",args=[{name="request",value="0x2001ff58"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="191",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+14^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="04000000"}]
+(gdb)
+ 
+15^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x200000cc",contents="040000005441545301004400bdcf6f12ef9c2a41000000000300000008000000010000000000000000000000000000002000000000000000000000000000000060575d41"}]
+(gdb)
+ 
+16^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="04000000"}]
+(gdb)
+ 
+17^running
+*running,thread-id="all"
+(gdb)
+ 
+18^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x08001484 in TakeRequest (request=0x2001ffa4) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:208\n"
+~"208\t    AutotuneSession_Request_t candidate = g_autotune_session_request;\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x08001484",func="TakeRequest",args=[{name="request",value="0x2001ffa4"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="208",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+19^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="04000000"}]
+(gdb)
+ 
+20^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x200000cc",contents="040000005441545301004400bdcf6f12ef9c2a41000000000300000008000000010000000000000000000000000000002000000000000000000000000000000060575d41"}]
+(gdb)
+ 
+21^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="04000000"}]
+(gdb)
+ 
+22^running
+*running,thread-id="all"
+(gdb)
+ 
+23^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x080013ca in RequestValid (request=0x2001ff58) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:188\n"
+~"188\t    return (request->magic == AUTOTUNE_SESSION_REQUEST_MAGIC) &&\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x080013ca",func="RequestValid",args=[{name="request",value="0x2001ff58"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="188",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+24^done
+(gdb)
+ 
+25^done
+(gdb)
+ 
+26^running
+*running,thread-id="all"
+(gdb)
+ 
+27^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x08001bc2 in AutotuneSession_Process (now_ms=2137) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:514\n"
+~"514\t{\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x08001bc2",func="AutotuneSession_Process",args=[{name="now_ms",value="2137"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="514",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+28^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="0a000000"}]
+(gdb)
+ 
+29^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x200000cc",contents="0a0000005441545301004400becf6f12ef9c2a418d9f375704000000080000000100000002000000000000000200000020000000000000000000000000000000ad853f54"}]
+(gdb)
+ 
+30^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="0a000000"}]
+(gdb)
+ 
+31^running
+*running,thread-id="all"
+(gdb)
+ 
+32^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x080013c2 in RequestValid (request=0x2001ff58) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:187\n"
+~"187\t{\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x080013c2",func="RequestValid",args=[{name="request",value="0x2001ff58"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="187",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+33^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="0a000000"}]
+(gdb)
+ 
+34^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x200000cc",contents="0a0000005441545301004400becf6f12ef9c2a418d9f375704000000080000000100000002000000000000000200000020000000000000000000000000000000ad853f54"}]
+(gdb)
+ 
+35^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="0a000000"}]
+(gdb)
+ 
+36^running
+*running,thread-id="all"
+(gdb)
+ 
+37^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x08001bf0 in AutotuneSession_Process (now_ms=2194) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:524\n"
+~"524\t}\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x08001bf0",func="AutotuneSession_Process",args=[{name="now_ms",value="2194"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="524",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+38^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="14000000"}]
+(gdb)
+ 
+39^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x200000cc",contents="140000005441545301004400becf6f12ef9c2a418d9f375704000000080000000100000007000000000000000700000020000000000000000000000000000000db5cd778"}]
+(gdb)
+ 
+40^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="14000000"}]
+(gdb)
+ 
+41^running
+*running,thread-id="all"
+(gdb)
+ 
+42^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x080013ca in RequestValid (request=0x2001ff58) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:188\n"
+~"188\t    return (request->magic == AUTOTUNE_SESSION_REQUEST_MAGIC) &&\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x080013ca",func="RequestValid",args=[{name="request",value="0x2001ff58"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="188",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+43^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="20000000"}]
+(gdb)
+ 
+44^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x200000cc",contents="200000005441545301004400becf6f12ef9c2a418d9f37570400000008000000010000000d000000000000000d0000002000000000000000000000000000000037ee0621"}]
+(gdb)
+ 
+45^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="20000000"}]
+(gdb)
+ 
+46^running
+*running,thread-id="all"
+(gdb)
+ 
+47^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x08001c1c in AutotuneSession_LocalSmokeProcess (now_ms=2301) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_local_smoke.c:14\n"
+~"14\t        if (g_smoke_sample_clock_valid == 0U) {\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x08001c1c",func="AutotuneSession_LocalSmokeProcess",args=[{name="now_ms",value="2301"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_local_smoke.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_local_smoke.c",line="14",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+48^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="2a000000"}]
+(gdb)
+ 
+49^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x200000cc",contents="2a0000005441545301004400becf6f12ef9c2a418d9f37570400000008000000010000001200000000000000120000002000000000000000000000000000000058ffa6af"}]
+(gdb)
+ 
+50^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="2a000000"}]
+(gdb)
+ 
+51^running
+*running,thread-id="all"
+(gdb)
+ 
+52^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x08001c32 in AutotuneSession_LocalSmokeProcess (now_ms=2355) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_local_smoke.c:17\n"
+~"17\t        } else if ((uint32_t)(now_ms - g_smoke_last_sample_ms) <\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x08001c32",func="AutotuneSession_LocalSmokeProcess",args=[{name="now_ms",value="2355"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_local_smoke.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_local_smoke.c",line="17",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+53^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="34000000"}]
+(gdb)
+ 
+54^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x200000cc",contents="340000005441545301004400becf6f12ef9c2a418d9f3757040000000800000001000000170000000000000017000000200000000000000000000000000000002e264e83"}]
+(gdb)
+ 
+55^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="34000000"}]
+(gdb)
+ 
+56^running
+*running,thread-id="all"
+(gdb)
+ 
+57^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x080013c2 in RequestValid (request=0x2001ff58) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:187\n"
+~"187\t{\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x080013c2",func="RequestValid",args=[{name="request",value="0x2001ff58"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="187",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+58^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="40000000"}]
+(gdb)
+ 
+59^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x200000cc",contents="400000005441545301004400becf6f12ef9c2a418d9f37570400000008000000010000001d000000000000001d00000020000000000000000000000000000000c2949fda"}]
+(gdb)
+ 
+60^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="40000000"}]
+(gdb)
+ 
+61^running
+*running,thread-id="all"
+(gdb)
+ 
+62^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x0800147a in TakeRequest (request=0x2001ffa4) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:208\n"
+~"208\t    AutotuneSession_Request_t candidate = g_autotune_session_request;\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x0800147a",func="TakeRequest",args=[{name="request",value="0x2001ffa4"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="208",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+63^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="48000000"}]
+(gdb)
+ 
+64^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x200000cc",contents="480000005441545301004400becf6f12ef9c2a418d9f375705000000080000000100000020000000000000002000000020000000000000000000000000000000f7689d1e"}]
+(gdb)
+ 
+65^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="48000000"}]
+(gdb)
+ 
+66^running
+*running,thread-id="all"
+(gdb)
+ 
+67^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x08001bca in AutotuneSession_Process (now_ms=2467) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:516\n"
+~"516\t    uint32_t state = g_autotune_session_status.state;\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x08001bca",func="AutotuneSession_Process",args=[{name="now_ms",value="2467"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="516",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+68^done,memory=[{begin="0x200000cc",offset="0x00000000",end="0x20000110",contents="544c535201004400ef9c2a418d9f37570800000001000000000000000100000020000000200000000000000020000000050000000000000001000000b8dbc77b573966b2"}]
+(gdb)
+ 
+69^done,memory=[{begin="0x20000110",offset="0x00000000",end="0x20000610",contents="010000004f080000ef9c2a418d9f37570000000064000000640000000000000004000000010000000200000059080000ef9c2a418d9f37570100000064000000640000000000000004000000010000000300000063080000ef9c2a418d9f3757020000006400000064000000000000000400000001000000040000006d080000ef9c2a418d9f37570300000064000000640000000000000004000000010000000500000077080000ef9c2a418d9f37570400000064000000640000000000000004000000010000000600000081080000ef9c2a418d9f3757050000006400000064000000000000000400000001000000070000008b080000ef9c2a418d9f37570600000064000000640000000000000004000000010000000800000095080000ef9c2a418d9f3757070000006400000064000000000000000400000001000000090000009f080000ef9c2a418d9f37570800000064000000640000000000000004000000010000000a000000a9080000ef9c2a418d9f37570900000064000000640000000000000004000000010000000b000000b3080000ef9c2a418d9f37570a00000064000000640000000000000004000000010000000c000000bd080000ef9c2a418d9f37570b00000064000000640000000000000004000000010000000d000000c7080000ef9c2a418d9f37570c00000064000000640000000000000004000000010000000e000000d1080000ef9c2a418d9f37570d00000064000000640000000000000004000000010000000f000000db080000ef9c2a418d9f37570e000000640000006400000000000000040000000100000010000000e5080000ef9c2a418d9f37570f000000640000006400000000000000040000000100000011000000ef080000ef9c2a418d9f375710000000640000006400000000000000040000000100000012000000f9080000ef9c2a418d9f37571100000064000000640000000000000004000000010000001300000003090000ef9c2a418d9f3757120000006400000064000000000000000400000001000000140000000d090000ef9c2a418d9f37571300000064000000640000000000000004000000010000001500000017090000ef9c2a418d9f37571400000064000000640000000000000004000000010000001600000021090000ef9c2a418d9f3757150000006400000064000000000000000400000001000000170000002b090000ef9c2a418d9f37571600000064000000640000000000000004000000010000001800000035090000ef9c2a418d9f3757170000006400000064000000000000000400000001000000190000003f090000ef9c2a418d9f37571800000064000000640000000000000004000000010000001a00000049090000ef9c2a418d9f37571900000064000000640000000000000004000000010000001b00000053090000ef9c2a418d9f37571a00000064000000640000000000000004000000010000001c0000005d090000ef9c2a418d9f37571b00000064000000640000000000000004000000010000001d00000067090000ef9c2a418d9f37571c00000064000000640000000000000004000000010000001e00000071090000ef9c2a418d9f37571d00000064000000640000000000000004000000010000001f0000007b090000ef9c2a418d9f37571e00000064000000640000000000000004000000010000002000000085090000ef9c2a418d9f37571f0000006400000064000000000000000400000001000000"}]
+(gdb)
+ 
+70^running
+*running,thread-id="all"
+(gdb)
+ 
+71^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x080014c6 in TakeRequest (request=0x2001ffa4) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:217\n"
+~"217\t}\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x080014c6",func="TakeRequest",args=[{name="request",value="0x2001ffa4"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="217",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+72^done
+(gdb)
+ 
+73^done
+(gdb)
+ 
+74^running
+*running,thread-id="all"
+(gdb)
+ 
+75^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x08001bc6 in AutotuneSession_Process (now_ms=2483) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:514\n"
+~"514\t{\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x08001bc6",func="AutotuneSession_Process",args=[{name="now_ms",value="2483"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="514",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+76^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="4a000000"}]
+(gdb)
+ 
+77^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x200000cc",contents="4a0000005441545301004400bfcf6f12ef9c2a418d9f3757020000000800000001000000200000000000000020000000200000000000000000000000bfcf6f123cee5243"}]
+(gdb)
+ 
+78^done,memory=[{begin="0x20000088",offset="0x00000000",end="0x2000008c",contents="4a000000"}]
+(gdb)
+ 
+79^running
+*running,thread-id="all"
+(gdb)
+ 
+80^done
+(gdb)
+ 
+~"\nProgram"
+~" received signal SIGINT, Interrupt.\n"
+~"0x08001480 in TakeRequest (request=0x2001ffa4) at D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c:208\n"
+~"208\t    AutotuneSession_Request_t candidate = g_autotune_session_request;\n"
+*stopped,reason="signal-received",signal-name="SIGINT",signal-meaning="Interrupt",frame={addr="0x08001480",func="TakeRequest",args=[{name="request",value="0x2001ffa4"}],file="D:/STM32cubemx/Project/ros/BSP/autotune_safe_session.c",fullname="D:\\STM32cubemx\\Project\\ros\\BSP\\autotune_safe_session.c",line="208",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+81^done,value="0x8001480 <TakeRequest+24>"
+(gdb)
+ 
+=thread-exited,id="1",group-id="i1"
+=thread-group-exited,id="i1"
+~"[Inferior 1 (Remote target) detached]\n"
+82^done
+(gdb)
+ 

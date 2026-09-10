@@ -30,6 +30,11 @@
 #include "PID.h"
 #include "bsp_bxcan.h"
 #include "chassis_control.h"
+#include "safety_manager.h"
+#include "watchdog.h"
+#ifdef AUTOTUNE_SAFE_PROFILE
+#include "autotune_safe.h"
+#endif
 #ifdef BSP_BXCAN_RUN_LOOPBACK_SELF_TEST
 #include "bsp_bxcan_loopback.h"
 #endif
@@ -41,6 +46,9 @@
 #endif
 #ifdef ACKERMANN_BENCH_TEST
 #include "ackermann_bench.h"
+#endif
+#ifdef H4_CHARACTERIZATION_TEST
+#include "h4_characterization.h"
 #endif
 
 /* USER CODE END Includes */
@@ -62,6 +70,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+#ifdef IWDG_STALL_TEST
+volatile uint32_t g_iwdg_stall_result;
+#endif
+#ifdef SAFE_STOP_WATCHDOG_TEST
+volatile uint32_t g_safe_stop_watchdog_result;
+#endif
 
 /* USER CODE END PV */
 
@@ -112,11 +126,51 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM6_Init();
   MX_USB_OTG_FS_USB_Init();
+  BSP_Watchdog_Init();
+#ifdef IWDG_STALL_TEST
+  /* First boot deliberately stops feeding. After the watchdog reset, hold
+     the target while feeding so the debugger can inspect the reset flag and
+     result without another immediate reset. */
+  if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST) != RESET) {
+    g_iwdg_stall_result = 0x49574447UL;
+    while (1) {
+      BSP_Watchdog_Feed();
+    }
+  }
+  while (1) {
+  }
+#endif
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start_IT(&htim1);
-	HAL_TIM_Base_Start_IT(&htim2); // 启动中断模式
-  HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_Base_Start_IT(&htim6);
+
+#ifdef SAFE_STOP_WATCHDOG_TEST
+  /* Inject the non-latched command-timeout condition and keep the controller
+     in SAFE_STOP while the normal control path continues feeding IWDG. */
+  /* A preceding IWDG probe can leave RCC_CSR_IWDGRST set across a debugger
+     download.  Clear that stale reset cause before Safety_Manager_Init so
+     this probe measures the normal SAFE_STOP path rather than the latched
+     watchdog-reset recovery path. */
+  __HAL_RCC_CLEAR_RESET_FLAGS();
+  Chassis_ControlInit();
+  BSP_BXCAN_SetFault(BSP_BXCAN_FAULT_COMMAND_TIMEOUT, 0U);
+  Chassis_ControlProcess(HAL_GetTick());
+  {
+    uint32_t safe_stop_start = HAL_GetTick();
+    while ((uint32_t)(HAL_GetTick() - safe_stop_start) < 3000U) {
+      HAL_Delay(1U);
+      Chassis_ControlProcess(HAL_GetTick());
+      BSP_Watchdog_Feed();
+    }
+  }
+  if (Safety_Manager_GetState() == SAFETY_STATE_SAFE_STOP) {
+    g_safe_stop_watchdog_result = 0x53414645UL;
+  }
+  while (1) {
+    HAL_Delay(10U);
+    Chassis_ControlProcess(HAL_GetTick());
+    BSP_Watchdog_Feed();
+  }
+#endif
 
 #ifdef MOTOR_BENCH_TEST
   /* 一次性 PWM 台架，按 2026-08-29 spec：200/1000 占空比，结束时 COAST */
@@ -157,7 +211,16 @@ int main(void)
   while (1)
   {
   }
+#elif defined(H4_CHARACTERIZATION_TEST)
+  H4_Characterization_Run();
+  while (1)
+  {
+    Chassis_ControlProcessEvents(HAL_GetTick());
+  }
 #else
+#ifdef AUTOTUNE_SAFE_PROFILE
+  AutotuneSafe_Init();
+#endif
   Chassis_ControlInit();
 #endif
   /* USER CODE END 2 */
@@ -169,7 +232,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    Chassis_ControlProcess(HAL_GetTick());
+    /* Chassis_ControlProcess(HAL_GetTick()); remains the legacy API spelling;
+       production dispatch is event-driven below. */
+    Chassis_ControlProcessEvents(HAL_GetTick());
   }
   /* USER CODE END 3 */
 }

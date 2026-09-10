@@ -153,6 +153,57 @@ class EncoderHostTest(unittest.TestCase):
             )
         )
 
+    def test_left_encoder_preserves_forward_and_reverse_count_signs(self):
+        self.compile_and_run(
+            textwrap.dedent(
+                r"""
+                #include <stdint.h>
+                #include <stdlib.h>
+
+                #define TIM_CHANNEL_ALL 0xFFFFFFFFU
+
+                typedef struct {
+                    struct {
+                        uint32_t Period;
+                    } Init;
+                    uint32_t counter;
+                } TIM_HandleTypeDef;
+
+                TIM_HandleTypeDef htim1 = {{65535U}, 1000U};
+                TIM_HandleTypeDef htim2 = {{0xFFFFFFFFU}, 0U};
+
+                uint32_t fake_get_counter(TIM_HandleTypeDef *htim) { return htim->counter; }
+                int HAL_TIM_Encoder_Start(TIM_HandleTypeDef *htim, uint32_t channel)
+                {
+                    (void)htim;
+                    (void)channel;
+                    return 0;
+                }
+
+                #define __HAL_TIM_GET_COUNTER(htim) fake_get_counter((htim))
+
+                #include "BSP/encoder.c"
+
+                int main(void)
+                {
+                    EncoderSample_t sample;
+
+                    Encoder_Reset();
+                    htim1.counter = 1560U;
+                    sample = Encoder_Sample(1U, 10U);
+                    if (sample.trusted != 1U || sample.delta_counts != 560 ||
+                        sample.accumulated_counts != 560) return 1;
+
+                    htim1.counter = 1000U;
+                    sample = Encoder_Sample(1U, 10U);
+                    if (sample.trusted != 1U || sample.delta_counts != -560 ||
+                        sample.accumulated_counts != 0) return 2;
+                    return 0;
+                }
+                """
+            )
+        )
+
     def test_rejects_unphysical_delta_without_updating_accumulation(self):
         self.compile_and_run(
             textwrap.dedent(
@@ -197,6 +248,115 @@ class EncoderHostTest(unittest.TestCase):
                     sample = Encoder_Sample(1U, 10U);
                     if (sample.trusted != 0U) abort();
                     if (sample.accumulated_counts != 560) abort();
+                    return 0;
+                }
+                """
+            )
+        )
+
+    def test_exposes_last_sample_evidence_without_sampling_again(self):
+        self.compile_and_run(
+            textwrap.dedent(
+                r"""
+                #include <stdint.h>
+                #include <stdlib.h>
+
+                #define TIM_CHANNEL_ALL 0xFFFFFFFFU
+
+                typedef struct {
+                    struct {
+                        uint32_t Period;
+                    } Init;
+                    uint32_t counter;
+                } TIM_HandleTypeDef;
+
+                TIM_HandleTypeDef htim1 = {{65535U}, 1000U};
+                TIM_HandleTypeDef htim2 = {{0xFFFFFFFFU}, 0U};
+
+                uint32_t fake_get_counter(TIM_HandleTypeDef *htim) { return htim->counter; }
+                int HAL_TIM_Encoder_Start(TIM_HandleTypeDef *htim, uint32_t channel)
+                {
+                    (void)htim;
+                    (void)channel;
+                    return 0;
+                }
+
+                #define __HAL_TIM_GET_COUNTER(htim) fake_get_counter((htim))
+
+                #include "BSP/encoder.c"
+
+                int main(void)
+                {
+                    EncoderSample_t sample;
+                    EncoderDiagnostics_t diagnostics;
+
+                    Encoder_Reset();
+                    htim1.counter = 1010U;
+                    sample = Encoder_Sample(1U, 10U);
+                    htim1.counter = 1030U;
+                    sample = Encoder_Sample(1U, 10U);
+                    (void)sample;
+
+                    Encoder_GetDiagnostics(1U, &diagnostics);
+                    if (diagnostics.raw_delta_counts != 20) return 1;
+                    if (diagnostics.applied_delta_counts != 20) return 2;
+                    if (diagnostics.dt_ms != 10U) return 3;
+                    if (diagnostics.trusted == 0U) return 4;
+                    if (diagnostics.accumulated_counts != 30) return 5;
+                    if (diagnostics.sample_sequence != 2U) return 6;
+                    return 0;
+                }
+                """
+            )
+        )
+
+    def test_speed_evidence_matches_mcu_conversion_and_records_calibration(self):
+        self.compile_and_run(
+            textwrap.dedent(
+                r"""
+                #include <stdint.h>
+                #include <stdlib.h>
+
+                #define TIM_CHANNEL_ALL 0xFFFFFFFFU
+
+                typedef struct {
+                    struct {
+                        uint32_t Period;
+                    } Init;
+                    uint32_t counter;
+                } TIM_HandleTypeDef;
+
+                TIM_HandleTypeDef htim1 = {{65535U}, 1000U};
+                TIM_HandleTypeDef htim2 = {{0xFFFFFFFFU}, 0U};
+
+                uint32_t fake_get_counter(TIM_HandleTypeDef *htim) { return htim->counter; }
+                int HAL_TIM_Encoder_Start(TIM_HandleTypeDef *htim, uint32_t channel)
+                {
+                    (void)htim;
+                    (void)channel;
+                    return 0;
+                }
+
+                #define __HAL_TIM_GET_COUNTER(htim) fake_get_counter((htim))
+
+                #include "BSP/encoder.c"
+
+                int main(void)
+                {
+                    EncoderSample_t sample;
+                    EncoderSpeedEvidence_t evidence;
+
+                    Encoder_Reset();
+                    htim1.counter = 1560U;
+                    sample = Encoder_Sample(1U, 10U);
+                    Encoder_GetSpeedEvidence(&sample, 10U, &evidence);
+
+                    if (evidence.raw_delta_counts != 560) return 1;
+                    if (evidence.dt_ms != 10U) return 2;
+                    if (evidence.mcu_speed_mmps != evidence.recomputed_speed_mmps) return 3;
+                    if (evidence.counts_per_wheel_rev != 56000LL) return 4;
+                    if (evidence.circumference_mm_x1000 < 208000LL ||
+                        evidence.circumference_mm_x1000 > 210000LL) return 5;
                     return 0;
                 }
                 """

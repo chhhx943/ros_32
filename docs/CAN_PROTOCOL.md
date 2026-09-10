@@ -2,6 +2,7 @@
 
 Status: Frozen for host codec and STM32 implementation
 Frozen date: 2026-08-24
+Physical-layer bitrate amendment: 2026-09-06
 Target: RK3588/Linux host and STM32F407 chassis controller
 
 ## 1. Scope and authority
@@ -16,16 +17,33 @@ Normative terms `MUST`, `MUST NOT`, `SHOULD`, and `MAY` describe requirements. C
 
 | Property | Frozen value |
 |---|---|
-| CAN controller | STM32 CAN1 on PA11/PA12 |
+| CAN controller | STM32 CAN1 remapped to PB8/PB9 (PB8 RX, PB9 TX) |
 | CAN generation | Classic CAN 2.0A |
 | Identifier | 11-bit standard identifier |
 | Frame type | Data frame |
 | DLC | 8 bytes for every V1 frame |
-| Bitrate | 1,000,000 bit/s |
+| Bitrate | 500,000 bit/s |
 | Byte order | Little-endian for all multi-byte integers |
 | Application CRC | None; V1 relies on the Classic CAN frame CRC |
 
-The RK3588 SocketCAN interface MUST use 1 Mbit/s. The bus MUST have 120 ohm termination at both physical ends. A configured socket or CAN controller does not establish device health; health is established using valid feedback and heartbeat data.
+The RK3588 SocketCAN interface MUST use 500 kbit/s. The bus MUST have 120 ohm termination at both physical ends. A configured socket or CAN controller does not establish device health; health is established using valid feedback and heartbeat data.
+
+The STM32F407 implementation uses `PCLK1/CAN kernel clock = 42 MHz` from
+`SYSCLK=168 MHz` and `APB1=HCLK/4`. Its bxCAN timing is `Prescaler=7`,
+`SJW=1 TQ`, `BS1=8 TQ`, and `BS2=3 TQ`: `42,000,000 / (7 * 12) =
+500,000 bit/s`, with a 75% sample point. These physical-layer
+parameters do not change any V1 identifier, payload, sequence, pairing, or
+safety timing.
+
+At the current maximum scheduled traffic, the normal 8-frame feedback cycle
+plus the 2-frame command group is 10 frames every 20 ms. AutotuneSafe adds 11
+telemetry frames, for 21 frames every 20 ms while that profile is active. Using
+approximately 130 wire bits per standard 8-byte data frame (including nominal
+stuffing/IFS allowance), this is about 65 kbit/s (13%) normal and 136.5 kbit/s
+(27.3%) in the AutotuneSafe case at 500 kbit/s, before retries or other nodes.
+These are load estimates, not a relaxation of the 10 ms pair window or 100 ms
+MCU watchdog; error-passive, bus-off, termination, common-ground, and physical
+waveform checks remain required on the real bus.
 
 ## 3. Common types and conventions
 
@@ -319,7 +337,7 @@ Protocol storage limits are fixed by field types. Vehicle safety limits are not 
 
 | Limit | Current bring-up ceiling | Freeze status |
 |---|---:|---|
-| Absolute equivalent steering | 1000 mrad | Codec ceiling; vehicle limit must be lower and bench calibrated |
+| Absolute equivalent steering | 600 mrad | Current MCU vehicle envelope; out-of-envelope groups are rejected |
 | Absolute rear-wheel velocity | 3000 mm/s | Codec ceiling; vehicle profile limit must be lower and measured |
 | Command pair window | 10 ms | Frozen |
 | MCU command timeout | 100 ms | Frozen |
@@ -345,14 +363,14 @@ Both host and MCU codec suites MUST use matching byte vectors for at least:
 
 ## 12. Current STM32 implementation conformance
 
-As of 2026-08-31, `BSP/bsp_bxcan.c`, `chassis_control`, and their host tests implement the V1 identifiers, byte layouts, two-frame pairing, range ceilings, 10 ms pair window, 100 ms timeout, single-frame E-stop detection, five base feedback serializers plus the `0x186` diagnostics serializer, real encoder feedback snapshots, PE1 physical E-stop input, calibration gating, the `0x122`/`0x185` non-blocking calibration transaction with CAN loopback bench coverage, the `0x123`/`0x124` volatile PID maintenance transaction with `0x187` acknowledgement, and the complete minimum safety-manager evidence paths for encoder, stall, control-overrun, watchdog-reset, fault-priority, and E-stop-release handling.
+As of 2026-09-01, `BSP/bsp_bxcan.c`, `chassis_control`, and their host tests implement the V1 identifiers, byte layouts, fresh-sequence pairing, range ceilings, 10 ms pair window, 100 ms timeout, single-frame E-stop detection, five base feedback serializers plus the `0x186` diagnostics serializer, real encoder feedback snapshots, PE1 physical E-stop input, calibration gating, the `0x122`/`0x185` non-blocking calibration transaction with CAN loopback bench coverage, the `0x123`/`0x124` volatile PID maintenance transaction with `0x187` acknowledgement, and the complete minimum safety-manager evidence paths for encoder, stall, control-overrun, watchdog-reset, fault-priority, and E-stop-release handling. CAN1 is physically documented and configured on the PB8/PB9 remap.
 
-The following gaps are implementation work, not protocol alternatives:
+The following items remain hardware/acceptance work, not protocol alternatives:
 
-- reject duplicate `command_seq` without refreshing the watchdog;
-- add TIM4 steering calibration and output;
-- replace the current software brake response with an independently validated hardware driver-disable/power-isolation path if required by the vehicle safety case;
-- enable/configure an independent IWDG policy and validate the hardware response to CAN bus-off if the vehicle safety case requires immediate driver disable rather than the existing command-timeout path.
+- verify the independently clocked IWDG timeout and reset-cause report on the target;
+- validate CAN bus-off/TX-failure electrical behaviour and whether the vehicle requires a driver-disable/power-isolation input in addition to the immediate SAFE_STOP path;
+- complete measured steering pulse centre/limits and wheel calibration on the real vehicle (the firmware now ramps PWM and persists the first trusted response, but PPR/gear/radius still require a measured drivetrain procedure);
+- complete H4 differential-direction evidence with synchronized target L/R, actual L/R, PWM L/R and encoder delta L/R logs before any H5 ground test.
 
 Until these gaps are closed and bench-tested, passing codec and bxCAN loopback tests proves transport/format behaviour only, not complete vehicle-control conformance.
 

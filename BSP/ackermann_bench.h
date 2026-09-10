@@ -40,6 +40,8 @@ typedef struct {
     int16_t steering_mrad[ACKERMANN_BENCH_PHASE_COUNT];
     int16_t left_target_mmps[ACKERMANN_BENCH_PHASE_COUNT];
     int16_t right_target_mmps[ACKERMANN_BENCH_PHASE_COUNT];
+    int16_t actual_left_mmps[ACKERMANN_BENCH_PHASE_COUNT];
+    int16_t actual_right_mmps[ACKERMANN_BENCH_PHASE_COUNT];
     uint16_t applied_seq_after[ACKERMANN_BENCH_PHASE_COUNT];
     uint16_t fault_after[ACKERMANN_BENCH_PHASE_COUNT];
     uint32_t left_ccr_after[ACKERMANN_BENCH_PHASE_COUNT];

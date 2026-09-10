@@ -168,6 +168,37 @@ class CanMotorBenchStructureTest(unittest.TestCase):
         self.assertIn("left_sample.accumulated_counts", source)
         self.assertIn("right_sample.accumulated_counts", source)
 
+    def test_loopback_bench_clears_stale_watchdog_reset_cause_before_init(self):
+        source = read_rel("BSP/can_motor_bench.c")
+        init_body = source.split("static uint8_t CAN_Motor_Bench_Init(void)", 1)[1]
+        self.assertIn("__HAL_RCC_CLEAR_RESET_FLAGS();", init_body)
+        self.assertLess(
+            init_body.index("__HAL_RCC_CLEAR_RESET_FLAGS();"),
+            init_body.index("Chassis_ControlInit();"),
+        )
+        self.assertIn("BSP_Watchdog_Feed();", init_body)
+
+    def test_calibration_result_records_left_forward_hardware_diagnostics(self):
+        header = read_rel("BSP/can_motor_bench.h")
+        source = read_rel("BSP/can_motor_bench.c")
+
+        for field in (
+            "calibration_left_forward_ccr1",
+            "calibration_left_forward_pwm_permille",
+            "calibration_left_forward_tim1_raw_start",
+            "calibration_left_forward_tim1_raw_end",
+            "calibration_left_forward_tim1_raw_delta",
+            "calibration_left_forward_tb6612_pins",
+            "calibration_left_forward_captured",
+        ):
+            self.assertIn(field, header)
+
+        self.assertIn("__HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_1)", source)
+        self.assertIn("__HAL_TIM_GET_COUNTER(&htim1)", source)
+        self.assertIn("HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_12)", source)
+        self.assertIn("HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_13)", source)
+        self.assertIn("WHEEL_CALIBRATION_STAGE_LEFT_FORWARD", source)
+
 
 class CanMotorBenchFrameBuilderTest(unittest.TestCase):
     def compile_and_run(self, source):

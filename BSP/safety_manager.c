@@ -378,12 +378,15 @@ void Safety_Manager_Process(uint32_t now_ms)
     }
 
     if ((g_safety_state == SAFETY_STATE_BOOT) ||
+        ((g_safety_state == SAFETY_STATE_CALIBRATION) &&
+         (Wheel_Calibration_IsValid() != 0U)) ||
         ((g_safety_state == SAFETY_STATE_CALIBRATION_REQUIRED) &&
          (Wheel_Calibration_IsValid() != 0U))) {
         Safety_ManagerSetReadyState();
     } else if ((Wheel_Calibration_IsValid() == 0U) &&
                ((g_safety_state == SAFETY_STATE_STANDBY) ||
-                (g_safety_state == SAFETY_STATE_DRIVE))) {
+                (g_safety_state == SAFETY_STATE_DRIVE) ||
+                (g_safety_state == SAFETY_STATE_CALIBRATION))) {
         Safety_ManagerSet(SAFETY_STATE_CALIBRATION_REQUIRED, SAFETY_ACTION_COAST);
     }
 }
@@ -442,6 +445,9 @@ void Safety_Manager_AcceptCommand(const BSP_BXCAN_Command_t *command)
         if ((command->mode_flags & BSP_BXCAN_FLAG_RESET_FAULT) != 0U &&
             Safety_Manager_IsZeroStop(command) &&
             (Safety_ManagerResetCauseCleared() != 0U)) {
+            if (g_latched_fault_code == BSP_BXCAN_FAULT_CALIBRATION_INVALID) {
+                (void)Wheel_Calibration_Service_ClearFailedValidation();
+            }
             g_latched_fault_code = BSP_BXCAN_FAULT_NONE;
             BSP_BXCAN_SetFault(BSP_BXCAN_FAULT_NONE, 0U);
             Safety_ManagerSetReadyState();
@@ -462,8 +468,13 @@ void Safety_Manager_AcceptCommand(const BSP_BXCAN_Command_t *command)
         return;
     }
 
-    if ((fault != BSP_BXCAN_FAULT_NONE) ||
-        ((command->mode_flags & BSP_BXCAN_FLAG_SAFE_STOP) != 0U)) {
+    if ((command->mode_flags & BSP_BXCAN_FLAG_SAFE_STOP) != 0U) {
+        /* SAFE_STOP is a non-fault safety state.  It is recoverable only by
+           a subsequent fresh all-zero STOP group (handled above). */
+        Safety_ManagerSet(SAFETY_STATE_SAFE_STOP, SAFETY_ACTION_COAST);
+        return;
+    }
+    if (fault != BSP_BXCAN_FAULT_NONE) {
         Safety_ManagerSet(SAFETY_STATE_FAULT, SAFETY_ACTION_COAST);
         return;
     }

@@ -64,6 +64,7 @@ void CAN_Motor_Bench_BuildCalibrationFrame(uint16_t service_seq,
 #include "bsp_motor.h"
 #include "encoder.h"
 #include "physical_estop.h"
+#include "watchdog.h"
 #include "wheel_calibration.h"
 #include "wheel_calibration_service.h"
 
@@ -73,6 +74,11 @@ static uint16_t g_bench_command_seq;
 static uint32_t g_bench_checks_failed;
 static int64_t g_bench_left_phase_start_counts;
 static int64_t g_bench_right_phase_start_counts;
+static uint8_t g_left_forward_capture_active;
+static uint8_t g_left_forward_capture_finalized;
+static uint32_t g_left_forward_raw_start;
+static uint32_t g_left_forward_sample_sequence_start;
+static uint32_t g_left_forward_untrusted_samples_start;
 
 static uint8_t CAN_Motor_Bench_Init(void);
 
@@ -91,6 +97,28 @@ static void CAN_Motor_Bench_ResetResult(void)
     g_can_motor_bench_result.calibration_exit_reason = WHEEL_CALIBRATION_EXIT_NONE;
     g_can_motor_bench_result.calibration_left_delta = 0;
     g_can_motor_bench_result.calibration_right_delta = 0;
+    g_can_motor_bench_result.calibration_left_forward_command_pwm = 0;
+    g_can_motor_bench_result.calibration_left_forward_pwm_permille = 0U;
+    g_can_motor_bench_result.calibration_left_forward_ccr1 = 0U;
+    g_can_motor_bench_result.calibration_left_forward_tim1_raw_start = 0U;
+    g_can_motor_bench_result.calibration_left_forward_tim1_raw_end = 0U;
+    g_can_motor_bench_result.calibration_left_forward_tim1_raw_delta = 0;
+    g_can_motor_bench_result.calibration_left_forward_tb6612_pins = 0U;
+    g_can_motor_bench_result.calibration_left_forward_captured = 0U;
+    g_can_motor_bench_result.calibration_left_forward_encoder_accum_start = 0;
+    g_can_motor_bench_result.calibration_left_forward_encoder_accum_end = 0;
+    g_can_motor_bench_result.calibration_left_forward_encoder_accum_delta = 0;
+    g_can_motor_bench_result.calibration_left_forward_last_sample_raw_delta = 0;
+    g_can_motor_bench_result.calibration_left_forward_last_sample_applied_delta = 0;
+    g_can_motor_bench_result.calibration_left_forward_sample_count = 0U;
+    g_can_motor_bench_result.calibration_left_forward_untrusted_samples = 0U;
+    g_can_motor_bench_result.calibration_left_forward_last_dt_ms = 0U;
+    g_can_motor_bench_result.calibration_left_forward_last_sample_trusted = 0U;
+    g_can_motor_bench_result.calibration_left_forward_service_start_counts = 0;
+    g_can_motor_bench_result.calibration_left_forward_service_delta_counts = 0;
+    g_can_motor_bench_result.calibration_left_forward_service_pwm_permille = 0U;
+    g_can_motor_bench_result.calibration_left_forward_service_sample_trusted = 0U;
+    g_can_motor_bench_result.calibration_left_forward_service_response_detected = 0U;
 
     for (i = 0U; i < CAN_MOTOR_BENCH_PHASE_COUNT; ++i) {
         g_can_motor_bench_result.applied_seq_after[i] = 0U;
@@ -176,6 +204,108 @@ static uint8_t CAN_Motor_Bench_ReadTb6612Pins(void)
     }
 
     return pins;
+}
+
+static int32_t CAN_Motor_Bench_TimerDelta(const TIM_HandleTypeDef *timer,
+                                          uint32_t start,
+                                          uint32_t end)
+{
+    uint64_t modulo = (uint64_t)timer->Init.Period + 1ULL;
+    int64_t delta = (int64_t)end - (int64_t)start;
+    int64_t half = (int64_t)(modulo / 2ULL);
+
+    if (delta > half) {
+        delta -= (int64_t)modulo;
+    } else if (delta < -half) {
+        delta += (int64_t)modulo;
+    }
+
+    return (int32_t)delta;
+}
+
+/* Snapshot only: this never changes the calibration state machine, thresholds,
+ * safety action, or motor command.  It runs immediately before the normal
+ * chassis process so the pins/CCR still describe the active LEFT_FORWARD
+ * output, even if that process terminates the stage and coasts the motor. */
+static void CAN_Motor_Bench_CaptureLeftForwardSnapshot(void)
+{
+    EncoderDiagnostics_t diagnostics;
+    Wheel_Calibration_Recommendation_t recommendation;
+    uint32_t ccr1;
+    uint32_t period;
+
+    if (Wheel_Calibration_Service_GetStage() != WHEEL_CALIBRATION_STAGE_LEFT_FORWARD) {
+        return;
+    }
+
+    if (g_left_forward_capture_active == 0U) {
+        g_left_forward_capture_active = 1U;
+        g_left_forward_raw_start = __HAL_TIM_GET_COUNTER(&htim1);
+        Encoder_GetDiagnostics(1U, &diagnostics);
+        g_left_forward_sample_sequence_start = diagnostics.sample_sequence;
+        g_left_forward_untrusted_samples_start = diagnostics.untrusted_samples;
+        g_can_motor_bench_result.calibration_left_forward_tim1_raw_start =
+            g_left_forward_raw_start;
+        g_can_motor_bench_result.calibration_left_forward_encoder_accum_start =
+            (int32_t)diagnostics.accumulated_counts;
+        g_can_motor_bench_result.calibration_left_forward_captured = 1U;
+    }
+
+    ccr1 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_1);
+    period = htim3.Init.Period;
+    g_can_motor_bench_result.calibration_left_forward_ccr1 = ccr1;
+    if (period != 0U) {
+        uint64_t permille = ((uint64_t)ccr1 * 1000ULL) / (uint64_t)period;
+        if (permille > 1000ULL) {
+            permille = 1000ULL;
+        }
+        g_can_motor_bench_result.calibration_left_forward_pwm_permille =
+            (uint16_t)permille;
+    }
+
+    if (Wheel_Calibration_Service_GetRecommendation(&recommendation) != 0U) {
+        g_can_motor_bench_result.calibration_left_forward_command_pwm =
+            recommendation.left_pwm;
+    }
+    g_can_motor_bench_result.calibration_left_forward_tb6612_pins =
+        (uint8_t)(CAN_Motor_Bench_ReadTb6612Pins() &
+                  (CAN_MOTOR_BENCH_PIN_LEFT_IN1 | CAN_MOTOR_BENCH_PIN_LEFT_IN2));
+}
+
+static void CAN_Motor_Bench_FinalizeLeftForwardSnapshot(void)
+{
+    EncoderDiagnostics_t diagnostics;
+
+    if ((g_left_forward_capture_active == 0U) ||
+        (g_left_forward_capture_finalized != 0U) ||
+        (Wheel_Calibration_Service_GetStage() == WHEEL_CALIBRATION_STAGE_LEFT_FORWARD)) {
+        return;
+    }
+
+    g_can_motor_bench_result.calibration_left_forward_tim1_raw_end =
+        __HAL_TIM_GET_COUNTER(&htim1);
+    g_can_motor_bench_result.calibration_left_forward_tim1_raw_delta =
+        CAN_Motor_Bench_TimerDelta(
+            &htim1,
+            g_can_motor_bench_result.calibration_left_forward_tim1_raw_start,
+            g_can_motor_bench_result.calibration_left_forward_tim1_raw_end);
+    Encoder_GetDiagnostics(1U, &diagnostics);
+    g_can_motor_bench_result.calibration_left_forward_encoder_accum_end =
+        (int32_t)diagnostics.accumulated_counts;
+    g_can_motor_bench_result.calibration_left_forward_encoder_accum_delta =
+        g_can_motor_bench_result.calibration_left_forward_encoder_accum_end -
+        g_can_motor_bench_result.calibration_left_forward_encoder_accum_start;
+    g_can_motor_bench_result.calibration_left_forward_last_sample_raw_delta =
+        diagnostics.raw_delta_counts;
+    g_can_motor_bench_result.calibration_left_forward_last_sample_applied_delta =
+        diagnostics.applied_delta_counts;
+    g_can_motor_bench_result.calibration_left_forward_sample_count =
+        diagnostics.sample_sequence - g_left_forward_sample_sequence_start;
+    g_can_motor_bench_result.calibration_left_forward_untrusted_samples =
+        diagnostics.untrusted_samples - g_left_forward_untrusted_samples_start;
+    g_can_motor_bench_result.calibration_left_forward_last_dt_ms = diagnostics.dt_ms;
+    g_can_motor_bench_result.calibration_left_forward_last_sample_trusted = diagnostics.trusted;
+    g_left_forward_capture_finalized = 1U;
 }
 
 static uint8_t CAN_Motor_Bench_ExpectedLeftPins(int16_t velocity_mmps)
@@ -466,9 +596,16 @@ void CAN_Motor_Bench_RunCalibration(void)
     EncoderSample_t left_start;
     EncoderSample_t right_start;
 
+    g_left_forward_capture_active = 0U;
+    g_left_forward_capture_finalized = 0U;
+    g_left_forward_raw_start = 0U;
+    g_left_forward_sample_sequence_start = 0U;
+    g_left_forward_untrusted_samples_start = 0U;
+
     if (CAN_Motor_Bench_Init() == 0U) {
         Motor_CoastAll();
         while (1) {
+            BSP_Watchdog_Feed();
             Chassis_ControlProcess(HAL_GetTick());
         }
     }
@@ -501,7 +638,10 @@ void CAN_Motor_Bench_RunCalibration(void)
             CAN_Motor_Bench_SendCommandGroup(BSP_BXCAN_MODE_STOP, 0, 0);
             last_stop = now;
         }
+        CAN_Motor_Bench_CaptureLeftForwardSnapshot();
         Chassis_ControlProcess(now);
+        CAN_Motor_Bench_FinalizeLeftForwardSnapshot();
+        BSP_Watchdog_Feed();
         if ((Wheel_Calibration_Service_IsActive() == 0U) &&
             (Wheel_Calibration_Service_GetState() != WHEEL_CALIBRATION_TX_NONE)) {
             break;
@@ -510,12 +650,42 @@ void CAN_Motor_Bench_RunCalibration(void)
     }
 
     Chassis_ControlProcess(HAL_GetTick());
+    CAN_Motor_Bench_FinalizeLeftForwardSnapshot();
+    {
+        Wheel_Calibration_StageDiagnostics_t service_diagnostics;
+
+        Wheel_Calibration_Service_GetStageDiagnostics(&service_diagnostics);
+        g_can_motor_bench_result.calibration_left_forward_service_start_counts =
+            (int32_t)service_diagnostics.left_start_counts;
+        g_can_motor_bench_result.calibration_left_forward_service_delta_counts =
+            (int32_t)service_diagnostics.left_delta_counts;
+        g_can_motor_bench_result.calibration_left_forward_service_pwm_permille =
+            service_diagnostics.stage_pwm_permille;
+        g_can_motor_bench_result.calibration_left_forward_service_sample_trusted =
+            service_diagnostics.left_sample_trusted;
+        g_can_motor_bench_result.calibration_left_forward_service_response_detected =
+            service_diagnostics.response_detected;
+    }
     g_can_motor_bench_result.calibration_state = Wheel_Calibration_Service_GetState();
     g_can_motor_bench_result.calibration_stage = Wheel_Calibration_Service_GetStage();
     g_can_motor_bench_result.calibration_exit_reason = Wheel_Calibration_Service_GetExitReason();
-    g_can_motor_bench_result.calibration_left_delta =
-        (int32_t)(Encoder_Sample(1U, CAN_MOTOR_BENCH_GROUP_PERIOD_MS).accumulated_counts -
-                  left_start.accumulated_counts);
+    {
+        Wheel_Calibration_TerminalSample_t terminal_sample;
+
+        Wheel_Calibration_Service_GetTerminalSample(&terminal_sample);
+        if (terminal_sample.valid != 0U) {
+            /* Use the sample from the service's decision cycle.  A fresh
+               Encoder_Sample() here would observe a later control period and
+               make the reported phase delta disagree with the decision. */
+            g_can_motor_bench_result.calibration_left_delta =
+                (int32_t)(terminal_sample.left_sample.accumulated_counts -
+                          left_start.accumulated_counts);
+        } else {
+            g_can_motor_bench_result.calibration_left_delta =
+                (int32_t)(Encoder_Sample(1U, CAN_MOTOR_BENCH_GROUP_PERIOD_MS).accumulated_counts -
+                          left_start.accumulated_counts);
+        }
+    }
     g_can_motor_bench_result.calibration_right_delta =
         (int32_t)(Encoder_Sample(2U, CAN_MOTOR_BENCH_GROUP_PERIOD_MS).accumulated_counts -
                   right_start.accumulated_counts);
@@ -534,6 +704,7 @@ void CAN_Motor_Bench_RunCalibration(void)
 
     while (1) {
         Chassis_ControlProcess(HAL_GetTick());
+        BSP_Watchdog_Feed();
     }
 }
 
@@ -554,6 +725,10 @@ static uint8_t CAN_Motor_Bench_Init(void)
         return 0U;
     }
 
+    /* The bench image is an opt-in test harness.  Do not let an IWDG reset
+       cause left by an earlier watchdog probe reject its synthetic STOP
+       precondition; normal firmware keeps the reset cause latched. */
+    __HAL_RCC_CLEAR_RESET_FLAGS();
     Chassis_ControlInit();
     return 1U;
 }
